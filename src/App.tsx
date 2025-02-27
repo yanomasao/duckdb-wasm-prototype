@@ -12,6 +12,7 @@ function App() {
     const { db, error: dbError } = useDuckDB();
     const [queryResult, setQueryResult] = useState<any | null>(null);
     const [queryError, setQueryError] = useState<string | null>(null);
+    const [file, setFile] = useState<File | null>(null);
 
     const executeQuery = async (query: string) => {
         if (!db) return;
@@ -28,6 +29,57 @@ function App() {
                 err instanceof Error ? err.message : 'Unknown error occurred'
             );
             setQueryResult(null);
+        }
+    };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFile = event.target.files?.[0] || null;
+        setFile(selectedFile);
+    };
+
+    const createTableFromFile = async () => {
+        if (!db || !file) return;
+
+        try {
+            const filePath = `/tmp/${file.name}`;
+            const fileContent = await file.text();
+            const conn = await db.connect();
+            await conn.query('INSTALL spatial;');
+            await conn.query('INSTALL json;');
+            await conn.query('LOAD spatial;');
+            await conn.query('LOAD json;');
+            console.log('fileContent:', fileContent);
+            const tableName = file.name.split('.')[0];
+            if (file.name.endsWith('.csv')) {
+                await conn.query(
+                    `COPY (SELECT '${fileContent}') TO '${filePath}' (FORMAT 'csv');`
+                );
+                const query = `CREATE TABLE ${tableName} AS SELECT * FROM read_csv_auto('${filePath}', HEADER=TRUE);`;
+                await conn.query(query);
+            } else if (file.name.endsWith('.geojson')) {
+                // const origin = window.location.origin;
+                // const path = window.location.pathname;
+                // let basename = origin;
+                // if (path !== '/') {
+                //     basename = origin + path;
+                // }
+                // console.log('basename:', basename);
+                await conn.query(
+                    `COPY (SELECT '${fileContent}') TO '${filePath}' (FORMAT 'json');`
+                    // `COPY (SELECT '${fileContent}') TO '${filePath}';`
+                );
+                // const query = `CREATE TABLE ${tableName} AS SELECT * FROM read_json_auto('${filePath}');`;
+                // const query = `CREATE TABLE ${tableName} AS SELECT * FROM st_read('${filePath}');`;
+                const query = `CREATE TABLE ${tableName} AS SELECT * FROM st_read('http://localhost:5173/minato_wk.geojson');`;
+                await conn.query(query);
+            }
+            setQueryError(null);
+            await conn.close();
+        } catch (err) {
+            console.error('Query error:', err);
+            setQueryError(
+                err instanceof Error ? err.message : 'Unknown error occurred'
+            );
         }
     };
 
@@ -63,6 +115,10 @@ function App() {
                     onShowTables={showTables}
                     disabled={!db}
                 />
+                <input type='file' onChange={handleFileChange} />
+                <button onClick={createTableFromFile} disabled={!db || !file}>
+                    Create Table from File
+                </button>
                 <DuckDbResult result={queryResult} error={queryError} />
                 <p>
                     Edit <code>src/App.tsx</code> and save to test HMR

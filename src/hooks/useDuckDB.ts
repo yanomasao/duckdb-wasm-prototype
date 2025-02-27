@@ -53,6 +53,12 @@ export function useDuckDB() {
                 // await db.registerFileHandle('duckdb.db', fileHandle, duckdb.DuckDBDataProtocol.OPFS, true);
                 await db.instantiate(bundle.mainModule);
 
+                // Install and load the spatial extension
+                const conn = await db.connect();
+                await conn.query('INSTALL spatial;');
+                await conn.query('LOAD spatial;');
+                await conn.close();
+
                 // OPFSにDuckDBを配置
                 // const opfs = await navigator.storage.getDirectory();
                 // const fileHandle = await opfs.getFileHandle("duckdb.db", {
