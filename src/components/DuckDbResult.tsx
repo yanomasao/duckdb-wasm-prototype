@@ -1,7 +1,5 @@
-import { AsyncDuckDBResult } from "@duckdb/duckdb-wasm";
-
 interface DuckDbResultProps {
-    result: AsyncDuckDBResult | null;
+    result: any | null;
     error: string | null;
 }
 
