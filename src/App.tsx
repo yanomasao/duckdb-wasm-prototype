@@ -44,17 +44,19 @@ function App() {
             const filePath = `/tmp/${file.name}`;
             const fileContent = await file.text();
             const conn = await db.connect();
-            await conn.query('INSTALL spatial;');
-            await conn.query('INSTALL json;');
+            // await conn.query('INSTALL spatial;');
+            // await conn.query('INSTALL json;');
             await conn.query('LOAD spatial;');
-            await conn.query('LOAD json;');
+            // await conn.query('LOAD json;');
             console.log('fileContent:', fileContent);
             const tableName = file.name.split('.')[0];
             if (file.name.endsWith('.csv')) {
                 await conn.query(
                     `COPY (SELECT '${fileContent}') TO '${filePath}' (FORMAT 'csv');`
                 );
-                const query = `CREATE TABLE ${tableName} AS SELECT * FROM read_csv_auto('${filePath}', HEADER=TRUE);`;
+                const query = `CREATE TABLE ${tableName} AS SELECT * FROM read_csv_auto('${filePath}', HEADER=TRUE, strict_mode=false, max_line_size=10000000, ignore_errors=true);`;
+                // const query = `CREATE TABLE ${tableName} AS SELECT * FROM read_csv_auto('${filePath}', HEADER=TRUE, strict_mode=false, max_line_size=10000000);`;
+                // const query = `CREATE TABLE ${tableName} AS SELECT * FROM st_read('${filePath}');`;
                 await conn.query(query);
             } else if (file.name.endsWith('.geojson')) {
                 // const origin = window.location.origin;
@@ -64,14 +66,37 @@ function App() {
                 //     basename = origin + path;
                 // }
                 // console.log('basename:', basename);
-                await conn.query(
-                    `COPY (SELECT '${fileContent}') TO '${filePath}' (FORMAT 'json');`
-                    // `COPY (SELECT '${fileContent}') TO '${filePath}';`
-                );
+                // await conn.query(
+                //     `COPY (SELECT '${fileContent}') TO '${filePath}' (FORMAT 'json');`
+                //     // `COPY (SELECT '${fileContent}') TO '${filePath}';`
+                // );
+                // OPFS にファイルを書き込む
+                // const opfs = await navigator.storage.getDirectory();
+                // const fileHandle = await opfs.getFileHandle(file.name, {
+                //     create: true,
+                // });
+                // // 書き込み用のストリームを取得する
+                // const writable = await fileHandle.createWritable();
+                // await writable.write(fileContent);
+                // await writable.close();
+
+                // DuckDB にファイルハンドルを登録
+                // await db.registerFileHandle(
+                //     file.name,
+                //     fileHandle,
+                //     duckdb.DuckDBDataProtocol.BROWSER_FILEREADER,
+                //     true
+                // );
+
                 // const query = `CREATE TABLE ${tableName} AS SELECT * FROM read_json_auto('${filePath}');`;
-                // const query = `CREATE TABLE ${tableName} AS SELECT * FROM st_read('${filePath}');`;
+                // const query = `CREATE TABLE ${tableName} AS SELECT * FROM st_read('opfs://${file.name}');`;
                 const query = `CREATE TABLE ${tableName} AS SELECT * FROM st_read('http://localhost:5173/minato_wk.geojson');`;
                 await conn.query(query);
+                // if (writable) {
+                //     await writable.close().catch((e) => {
+                //         console.error('Error closing writable:', e);
+                //     });
+                // }
             }
             setQueryError(null);
             await conn.close();
