@@ -1,6 +1,7 @@
 import * as duckdb from "@duckdb/duckdb-wasm";
 import { useEffect, useState } from "react";
 
+
 export function useDuckDB() {
     const [db, setDb] = useState<duckdb.AsyncDuckDB | null>(null);
     const [error, setError] = useState<Error | null>(null);
@@ -32,11 +33,42 @@ export function useDuckDB() {
                     },
                 });
 
+                // const DUCKDB_CONFIG = new duckdb.DuckDBConfig();
+                // DUCKDB_CONFIG.set_allow_unsigned_extensions(true);
+
+
                 // DuckDBをインスタンス化
                 const worker = new Worker(bundle.mainWorker!);
                 const logger = new duckdb.ConsoleLogger();
                 const db = new duckdb.AsyncDuckDB(logger, worker);
+                // await db.open({
+                //     path: 'opfs://duckdb2.db',
+                //     accessMode: duckdb.DuckDBAccessMode.READ_WRITE
+                // });
+                // const opfs = await navigator.storage.getDirectory();
+                // const fileHandle = await opfs.getFileHandle("duckdb.db", {
+                //     create: true,
+                // });
+                // const dirHandle = await fileHandle.getFile('duckdb', { create: true });
+                // await db.registerFileHandle('duckdb.db', fileHandle, duckdb.DuckDBDataProtocol.OPFS, true);
                 await db.instantiate(bundle.mainModule);
+
+                // OPFSにDuckDBを配置
+                // const opfs = await navigator.storage.getDirectory();
+                // const fileHandle = await opfs.getFileHandle("duckdb.db", {
+                //     create: true,
+                // });
+                // const dirHandle = await fileHandle.getFile('duckdb', { create: true });
+                // await db.registerFileHandle('duckdb.db', fileHandle, duckdb.DuckDBDataProtocol.HTTP, true);
+                // await db.open({
+                //     path: 'opfs://duckdb10.db',
+                //     // path: ':memory:', // Use ':memory:' for in-memory
+                //     accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
+                // });
+                // const conn = await db.connect();
+                // const anotherFileHandle = await opfsRoot.getFileHandle("my first file", {
+                // create: true,
+                // });
 
                 setDb(db);
             } catch (err) {

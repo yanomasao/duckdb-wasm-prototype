@@ -1,18 +1,16 @@
-import { AsyncDuckDBResult } from "@duckdb/duckdb-wasm";
-import { useState } from "react";
-import "./App.css";
-import reactLogo from "./assets/react.svg";
-import { DuckDbQuery } from "./components/DuckDbQuery";
-import { DuckDbResult } from "./components/DuckDbResult";
-import { useDuckDB } from "./hooks/useDuckDB";
-import viteLogo from "/vite.svg";
+// import { AsyncDuckDBResult } from "@duckdb/duckdb-wasm";
+import { useState } from 'react';
+import './App.css';
+import reactLogo from './assets/react.svg';
+import { DuckDbQuery } from './components/DuckDbQuery';
+import { DuckDbResult } from './components/DuckDbResult';
+import { useDuckDB } from './hooks/useDuckDB';
+import viteLogo from '/vite.svg';
 
 function App() {
     const [count, setCount] = useState(0);
     const { db, error: dbError } = useDuckDB();
-    const [queryResult, setQueryResult] = useState<AsyncDuckDBResult | null>(
-        null
-    );
+    const [queryResult, setQueryResult] = useState<any | null>(null);
     const [queryError, setQueryError] = useState<string | null>(null);
 
     const executeQuery = async (query: string) => {
@@ -25,16 +23,16 @@ function App() {
             setQueryError(null);
             await conn.close();
         } catch (err) {
-            console.error("Query error:", err);
+            console.error('Query error:', err);
             setQueryError(
-                err instanceof Error ? err.message : "Unknown error occurred"
+                err instanceof Error ? err.message : 'Unknown error occurred'
             );
             setQueryResult(null);
         }
     };
 
     const showTables = async () => {
-        await executeQuery("SHOW TABLES;");
+        await executeQuery('SHOW TABLES;');
     };
 
     if (dbError) {
