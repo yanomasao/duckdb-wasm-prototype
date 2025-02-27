@@ -2,10 +2,15 @@ import { useState } from "react";
 
 interface DuckDbQueryProps {
     onExecute: (query: string) => Promise<void>;
+    onShowTables: () => Promise<void>;
     disabled: boolean;
 }
 
-export function DuckDbQuery({ onExecute, disabled }: DuckDbQueryProps) {
+export function DuckDbQuery({
+    onExecute,
+    onShowTables,
+    disabled,
+}: DuckDbQueryProps) {
     const [query, setQuery] = useState(
         `SELECT 'Hello from DuckDB-WASM!' as greeting`
     );
@@ -24,9 +29,18 @@ export function DuckDbQuery({ onExecute, disabled }: DuckDbQueryProps) {
                 rows={5}
                 disabled={disabled}
             />
-            <button type='submit' disabled={disabled || !query.trim()}>
-                Execute Query
-            </button>
+            <div className='query-buttons'>
+                <button type='submit' disabled={disabled || !query.trim()}>
+                    Execute Query
+                </button>
+                <button
+                    type='button'
+                    onClick={onShowTables}
+                    disabled={disabled}
+                >
+                    Show Tables
+                </button>
+            </div>
         </form>
     );
 }

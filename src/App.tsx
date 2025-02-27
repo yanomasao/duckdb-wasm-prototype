@@ -1,3 +1,4 @@
+import { AsyncDuckDBResult } from "@duckdb/duckdb-wasm";
 import { useState } from "react";
 import "./App.css";
 import reactLogo from "./assets/react.svg";
@@ -9,7 +10,9 @@ import viteLogo from "/vite.svg";
 function App() {
     const [count, setCount] = useState(0);
     const { db, error: dbError } = useDuckDB();
-    const [queryResult, setQueryResult] = useState<any | null>(null);
+    const [queryResult, setQueryResult] = useState<AsyncDuckDBResult | null>(
+        null
+    );
     const [queryError, setQueryError] = useState<string | null>(null);
 
     const executeQuery = async (query: string) => {
@@ -28,6 +31,10 @@ function App() {
             );
             setQueryResult(null);
         }
+    };
+
+    const showTables = async () => {
+        await executeQuery("SHOW TABLES;");
     };
 
     if (dbError) {
@@ -53,7 +60,11 @@ function App() {
                 <button onClick={() => setCount((count) => count + 1)}>
                     count is {count}
                 </button>
-                <DuckDbQuery onExecute={executeQuery} disabled={!db} />
+                <DuckDbQuery
+                    onExecute={executeQuery}
+                    onShowTables={showTables}
+                    disabled={!db}
+                />
                 <DuckDbResult result={queryResult} error={queryError} />
                 <p>
                     Edit <code>src/App.tsx</code> and save to test HMR

@@ -91,3 +91,9 @@
 .query-form button {
     align-self: flex-end;
 }
+
+.query-buttons {
+    display: flex;
+    gap: 1em;
+    justify-content: flex-end;
+}
