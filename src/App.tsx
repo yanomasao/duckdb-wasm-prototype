@@ -1,7 +1,7 @@
-import { AsyncDuckDBResult } from "@duckdb/duckdb-wasm";
 import { useState } from "react";
 import "./App.css";
 import reactLogo from "./assets/react.svg";
+import { DuckDbQuery } from "./components/DuckDbQuery";
 import { DuckDbResult } from "./components/DuckDbResult";
 import { useDuckDB } from "./hooks/useDuckDB";
 import viteLogo from "/vite.svg";
@@ -9,20 +9,15 @@ import viteLogo from "/vite.svg";
 function App() {
     const [count, setCount] = useState(0);
     const { db, error: dbError } = useDuckDB();
-    const [queryResult, setQueryResult] = useState<AsyncDuckDBResult | null>(
-        null
-    );
+    const [queryResult, setQueryResult] = useState<any | null>(null);
     const [queryError, setQueryError] = useState<string | null>(null);
 
-    // DuckDBを使用した簡単なクエリの例
-    const runQuery = async () => {
+    const executeQuery = async (query: string) => {
         if (!db) return;
 
         try {
             const conn = await db.connect();
-            const result = await conn.query(`
-                SELECT 'Hello from DuckDB-WASM!' as greeting
-            `);
+            const result = await conn.query(query);
             setQueryResult(result);
             setQueryError(null);
             await conn.close();
@@ -58,9 +53,7 @@ function App() {
                 <button onClick={() => setCount((count) => count + 1)}>
                     count is {count}
                 </button>
-                <button onClick={runQuery} disabled={!db}>
-                    Run DuckDB Query
-                </button>
+                <DuckDbQuery onExecute={executeQuery} disabled={!db} />
                 <DuckDbResult result={queryResult} error={queryError} />
                 <p>
                     Edit <code>src/App.tsx</code> and save to test HMR

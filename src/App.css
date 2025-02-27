@@ -63,3 +63,31 @@
     border-radius: 8px;
     text-align: left;
 }
+
+.query-form {
+    margin-top: 1em;
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+}
+
+.query-form textarea {
+    width: 100%;
+    padding: 0.5em;
+    font-family: monospace;
+    font-size: 14px;
+    border-radius: 4px;
+    border: 1px solid #444;
+    background-color: #ead5d5;
+    color: inherit;
+    resize: vertical;
+}
+
+.query-form textarea:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.query-form button {
+    align-self: flex-end;
+}
