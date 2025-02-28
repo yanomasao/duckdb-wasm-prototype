@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState } from 'react';
 
 interface DuckDbQueryProps {
     onExecute: (query: string) => Promise<void>;
@@ -30,15 +30,16 @@ export function DuckDbQuery({
                 disabled={disabled}
             />
             <div className='query-buttons'>
-                <button type='submit' disabled={disabled || !query.trim()}>
-                    Execute Query
-                </button>
                 <button
                     type='button'
                     onClick={onShowTables}
                     disabled={disabled}
+                    style={{ marginRight: 'auto' }} // Show Tablesボタンを右に寄せる
                 >
                     Show Tables
+                </button>
+                <button type='submit' disabled={disabled || !query.trim()}>
+                    Execute Query
                 </button>
             </div>
         </form>
