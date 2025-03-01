@@ -13,35 +13,6 @@ export function useDuckDB() {
     useEffect(() => {
         async function initDB() {
             try {
-                // DuckDBのWASMバンドルをロード
-                // const bundle = await duckdb.selectBundle({
-                //     mvp: {
-                //         mainModule: new URL(
-                //             "@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm",
-                //             import.meta.url
-                //         ).toString(),
-                //         mainWorker: new URL(
-                //             "@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js",
-                //             import.meta.url
-                //         ).toString(),
-                //     },
-                //     eh: {
-                //         mainModule: new URL(
-                //             "@duckdb/duckdb-wasm/dist/duckdb-eh.wasm",
-                //             import.meta.url
-                //         ).toString(),
-                //         mainWorker: new URL(
-                //             "@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js",
-                //             import.meta.url
-                //         ).toString(),
-                //     },
-                // });
-
-                // const worker = new duckdb_worker();
-                // const logger = new duckdb.ConsoleLogger();
-                // const db = new duckdb.AsyncDuckDB(logger, worker);
-                // await db.instantiate(duckdb_wasm);
-
                 const MANUAL_BUNDLES: duckdb.DuckDBBundles = {
                     mvp: {
                         mainModule: duckdb_wasm,
@@ -102,7 +73,7 @@ export function useDuckDB() {
                 db.terminate();
             }
         };
-    }, []);
+    }, [db]);
 
     return { db, error };
 }
