@@ -3,6 +3,7 @@ import './App.css';
 import reactLogo from './assets/react.svg';
 import { DuckDbQuery } from './components/DuckDbQuery';
 import { DuckDbResult } from './components/DuckDbResult';
+import Map from './components/Map'; // Import the Map component
 import { useDuckDB } from './hooks/useDuckDb';
 import viteLogo from '/vite.svg';
 
@@ -91,6 +92,7 @@ function App() {
                 />
                 <DuckDbResult result={queryResult} error={queryError} />
             </div>
+            <Map /> {/* Add the Map component */}
             <p className='read-the-docs'>
                 Click on the Vite and React logos to learn more
             </p>
