@@ -4,11 +4,7 @@ import 'maplibre-gl-opacity/dist/maplibre-gl-opacity.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import React, { useEffect } from 'react';
 
-interface MapProps {
-    embassies: { name: string; geom: string }[];
-}
-
-const Map: React.FC<MapProps> = ({ embassies }) => {
+const Map: React.FC = () => {
     useEffect(() => {
         const map = new maplibregl.Map({
             container: 'map', // div要素のid
@@ -154,7 +150,6 @@ const Map: React.FC<MapProps> = ({ embassies }) => {
         });
 
         map.on('load', () => {
-            alert(`Map loaded! ${embassies} embassies loaded`);
             // 背景地図・重ねるタイル地図のコントロール
             const opacity = new OpacityControl({
                 baseLayers: {
@@ -167,41 +162,12 @@ const Map: React.FC<MapProps> = ({ embassies }) => {
                 },
             });
             map.addControl(opacity, 'top-left');
-
-            // Add embassy data as a new layer
-            const embassyFeatures = embassies.map((embassy) => ({
-                type: 'Feature',
-                geometry: JSON.parse(embassy.geom),
-                properties: {
-                    name: embassy.name,
-                },
-            }));
-
-            map.addSource('embassies', {
-                type: 'geojson',
-                data: {
-                    type: 'FeatureCollection',
-                    features: embassyFeatures,
-                },
-            });
-
-            map.addLayer({
-                id: 'embassies-layer',
-                type: 'symbol',
-                source: 'embassies',
-                layout: {
-                    'icon-image': 'marker-15',
-                    'text-field': ['get', 'name'],
-                    'text-offset': [0, 1.25],
-                    'text-anchor': 'top',
-                },
-            });
         });
 
         return () => {
             map.remove();
         };
-    }, [embassies]);
+    }, []);
 
     return <div id='map' style={{ height: '80vh' }}></div>;
 };
