@@ -12,6 +12,7 @@
   "dependencies": {
     "@duckdb/duckdb-wasm": "^1.29.1-dev68.0",
     "apache-arrow": "^19.0.1",
+    "maplibre-gl": "^2.4.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
