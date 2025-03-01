@@ -14,7 +14,7 @@ const Map: React.FC = () => {
         };
     }, []);
 
-    return <div id='map' style={{ height: '100vh' }}></div>;
+    return <div id='map' style={{ height: '80vh' }}></div>;
 };
 
 export default Map;
