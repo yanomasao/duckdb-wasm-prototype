@@ -192,9 +192,6 @@ const Map: React.FC<MapProps> = ({ points = [] }) => {
             // Add click event handler for the map
             mapInstance.on("click", (e) => {
                 const { lng, lat } = e.lngLat;
-                const coordinates = `緯度: ${lat.toFixed(
-                    6
-                )}, 経度: ${lng.toFixed(6)}`;
 
                 // Remove existing popup if any
                 if (popup) {
@@ -207,9 +204,12 @@ const Map: React.FC<MapProps> = ({ points = [] }) => {
                     .setHTML(
                         `
                         <div>
-                            <strong>${coordinates}</strong>
+                            <div style="margin-bottom: 10px;">
+                                <div>緯度: ${lat.toFixed(6)}</div>
+                                <div>経度: ${lng.toFixed(6)}</div>
+                            </div>
                             <form id="point-form" style="margin-top: 10px;">
-                                <input type="text" id="point-name" placeholder="名称を入力" style="width: 100%; padding: 5px; margin-bottom: 5px;">
+                                <input type="text" id="point-name" placeholder="名称を入力" style="width: 90%; padding: 5px; margin-bottom: 5px;">
                                 <button type="submit" style="width: 100%; padding: 5px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">保存</button>
                             </form>
                         </div>
@@ -228,7 +228,9 @@ const Map: React.FC<MapProps> = ({ points = [] }) => {
                         const name = nameInput.value;
                         if (name) {
                             // TODO: ここで名称を保存する処理を追加
-                            console.log("保存された名称:", name);
+                            alert(
+                                `保存された名称: ${name}\n緯度: ${lat}\n経度: ${lng}`
+                            );
                             newPopup.remove();
                         }
                     });
