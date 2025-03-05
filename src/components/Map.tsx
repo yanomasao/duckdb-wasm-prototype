@@ -164,6 +164,17 @@ const Map: React.FC = () => {
             map.addControl(opacity, 'top-left');
         });
 
+        // Add click event listener
+        map.on('click', (e) => {
+            const coordinates = e.lngLat;
+            new maplibregl.Popup()
+                .setLngLat(coordinates)
+                .setHTML(
+                    `Longitude: ${coordinates.lng}<br>Latitude: ${coordinates.lat}`
+                )
+                .addTo(map);
+        });
+
         return () => {
             map.remove();
         };
