@@ -123,6 +123,13 @@ const Map: React.FC<MapProps> = ({ points = [] }) => {
                         type: "raster",
                     },
                     {
+                        id: "empty-layer",
+                        source: "osm",
+                        type: "raster",
+                        paint: { "raster-opacity": 0 },
+                        layout: { visibility: "visible" },
+                    },
+                    {
                         id: "hazard_flood-layer",
                         source: "hazard_flood",
                         type: "raster",
@@ -171,6 +178,7 @@ const Map: React.FC<MapProps> = ({ points = [] }) => {
         mapInstance.on("load", () => {
             const opacity = new OpacityControl({
                 baseLayers: {
+                    "empty-layer": "なし",
                     "hazard_flood-layer": "洪水浸水想定区域",
                     "hazard_hightide-layer": "高潮浸水想定区域",
                     "hazard_tsunami-layer": "津波浸水想定区域",
