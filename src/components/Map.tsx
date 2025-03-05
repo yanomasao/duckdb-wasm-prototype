@@ -1,39 +1,58 @@
-import maplibregl from 'maplibre-gl';
-import OpacityControl from 'maplibre-gl-opacity';
-import 'maplibre-gl-opacity/dist/maplibre-gl-opacity.css';
-import 'maplibre-gl/dist/maplibre-gl.css';
-import React, { useEffect, useState } from 'react';
+import maplibregl from "maplibre-gl";
+import OpacityControl from "maplibre-gl-opacity";
+import "maplibre-gl-opacity/dist/maplibre-gl-opacity.css";
+import "maplibre-gl/dist/maplibre-gl.css";
+import React, { useEffect, useState } from "react";
 
-const Map: React.FC = () => {
+interface Point {
+    geom: string;
+    name: string;
+}
+
+interface MapProps {
+    points?: Point[];
+}
+
+interface GeoJSONFeature {
+    type: "Feature";
+    geometry: {
+        type: string;
+        coordinates: number[];
+    };
+    properties: {
+        name: string;
+    };
+}
+
+const Map: React.FC<MapProps> = ({ points = [] }) => {
     const [popup, setPopup] = useState<maplibregl.Popup | null>(null);
+    const [map, setMap] = useState<maplibregl.Map | null>(null);
 
     useEffect(() => {
-        const map = new maplibregl.Map({
-            container: 'map', // div要素のid
-            zoom: 5, // 初期表示のズーム
-            center: [138, 37], // 初期表示の中心
-            minZoom: 5, // 最小ズーム
-            maxZoom: 18, // 最大ズーム
-            maxBounds: [122, 20, 154, 50], // 表示可能な範囲
+        const mapInstance = new maplibregl.Map({
+            container: "map",
+            zoom: 5,
+            center: [138, 37],
+            minZoom: 5,
+            maxZoom: 18,
+            maxBounds: [122, 20, 154, 50],
             style: {
                 version: 8,
                 sources: {
-                    // 背景地図ソース
                     osm: {
-                        type: 'raster',
+                        type: "raster",
                         tiles: [
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                         ],
                         maxzoom: 19,
                         tileSize: 256,
                         attribution:
                             '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                     },
-                    // ハザードマップ
                     hazard_flood: {
-                        type: 'raster',
+                        type: "raster",
                         tiles: [
-                            'https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png',
+                            "https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png",
                         ],
                         minzoom: 2,
                         maxzoom: 17,
@@ -42,9 +61,9 @@ const Map: React.FC = () => {
                             '<a href="https://disaportal.gsi.go.jp/hazardmap/copyright/opendata.html">ハザードマップポータルサイト</a>',
                     },
                     hazard_hightide: {
-                        type: 'raster',
+                        type: "raster",
                         tiles: [
-                            'https://disaportaldata.gsi.go.jp/raster/03_hightide_l2_shinsuishin_data/{z}/{x}/{y}.png',
+                            "https://disaportaldata.gsi.go.jp/raster/03_hightide_l2_shinsuishin_data/{z}/{x}/{y}.png",
                         ],
                         minzoom: 2,
                         maxzoom: 17,
@@ -53,9 +72,9 @@ const Map: React.FC = () => {
                             '<a href="https://disaportal.gsi.go.jp/hazardmap/copyright/opendata.html">ハザードマップポータルサイト</a>',
                     },
                     hazard_tsunami: {
-                        type: 'raster',
+                        type: "raster",
                         tiles: [
-                            'https://disaportaldata.gsi.go.jp/raster/04_tsunami_newlegend_data/{z}/{x}/{y}.png',
+                            "https://disaportaldata.gsi.go.jp/raster/04_tsunami_newlegend_data/{z}/{x}/{y}.png",
                         ],
                         minzoom: 2,
                         maxzoom: 17,
@@ -64,9 +83,9 @@ const Map: React.FC = () => {
                             '<a href="https://disaportal.gsi.go.jp/hazardmap/copyright/opendata.html">ハザードマップポータルサイト</a>',
                     },
                     hazard_doseki: {
-                        type: 'raster',
+                        type: "raster",
                         tiles: [
-                            'https://disaportaldata.gsi.go.jp/raster/05_dosekiryukeikaikuiki/{z}/{x}/{y}.png',
+                            "https://disaportaldata.gsi.go.jp/raster/05_dosekiryukeikaikuiki/{z}/{x}/{y}.png",
                         ],
                         minzoom: 2,
                         maxzoom: 17,
@@ -75,9 +94,9 @@ const Map: React.FC = () => {
                             '<a href="https://disaportal.gsi.go.jp/hazardmap/copyright/opendata.html">ハザードマップポータルサイト</a>',
                     },
                     hazard_kyukeisha: {
-                        type: 'raster',
+                        type: "raster",
                         tiles: [
-                            'https://disaportaldata.gsi.go.jp/raster/05_kyukeishakeikaikuiki/{z}/{x}/{y}.png',
+                            "https://disaportaldata.gsi.go.jp/raster/05_kyukeishakeikaikuiki/{z}/{x}/{y}.png",
                         ],
                         minzoom: 2,
                         maxzoom: 17,
@@ -86,9 +105,9 @@ const Map: React.FC = () => {
                             '<a href="https://disaportal.gsi.go.jp/hazardmap/copyright/opendata.html">ハザードマップポータルサイト</a>',
                     },
                     hazard_jisuberi: {
-                        type: 'raster',
+                        type: "raster",
                         tiles: [
-                            'https://disaportaldata.gsi.go.jp/raster/05_jisuberikeikaikuiki/{z}/{x}/{y}.png',
+                            "https://disaportaldata.gsi.go.jp/raster/05_jisuberikeikaikuiki/{z}/{x}/{y}.png",
                         ],
                         minzoom: 2,
                         maxzoom: 17,
@@ -98,115 +117,150 @@ const Map: React.FC = () => {
                     },
                 },
                 layers: [
-                    // 背景地図レイヤー
                     {
-                        id: 'osm-layer',
-                        source: 'osm',
-                        type: 'raster',
-                    },
-                    // ハザードマップ
-                    {
-                        id: 'hazard_flood-layer',
-                        source: 'hazard_flood',
-                        type: 'raster',
-                        paint: { 'raster-opacity': 0.7 },
-                        layout: { visibility: 'none' },
+                        id: "osm-layer",
+                        source: "osm",
+                        type: "raster",
                     },
                     {
-                        id: 'hazard_hightide-layer',
-                        source: 'hazard_hightide',
-                        type: 'raster',
-                        paint: { 'raster-opacity': 0.7 },
-                        layout: { visibility: 'none' },
+                        id: "hazard_flood-layer",
+                        source: "hazard_flood",
+                        type: "raster",
+                        paint: { "raster-opacity": 0.7 },
+                        layout: { visibility: "none" },
                     },
                     {
-                        id: 'hazard_tsunami-layer',
-                        source: 'hazard_tsunami',
-                        type: 'raster',
-                        paint: { 'raster-opacity': 0.7 },
-                        layout: { visibility: 'none' },
+                        id: "hazard_hightide-layer",
+                        source: "hazard_hightide",
+                        type: "raster",
+                        paint: { "raster-opacity": 0.7 },
+                        layout: { visibility: "none" },
                     },
                     {
-                        id: 'hazard_doseki-layer',
-                        source: 'hazard_doseki',
-                        type: 'raster',
-                        paint: { 'raster-opacity': 0.7 },
-                        layout: { visibility: 'none' },
+                        id: "hazard_tsunami-layer",
+                        source: "hazard_tsunami",
+                        type: "raster",
+                        paint: { "raster-opacity": 0.7 },
+                        layout: { visibility: "none" },
                     },
                     {
-                        id: 'hazard_kyukeisha-layer',
-                        source: 'hazard_kyukeisha',
-                        type: 'raster',
-                        paint: { 'raster-opacity': 0.7 },
-                        layout: { visibility: 'none' },
+                        id: "hazard_doseki-layer",
+                        source: "hazard_doseki",
+                        type: "raster",
+                        paint: { "raster-opacity": 0.7 },
+                        layout: { visibility: "none" },
                     },
                     {
-                        id: 'hazard_jisuberi-layer',
-                        source: 'hazard_jisuberi',
-                        type: 'raster',
-                        paint: { 'raster-opacity': 0.7 },
-                        layout: { visibility: 'none' },
+                        id: "hazard_kyukeisha-layer",
+                        source: "hazard_kyukeisha",
+                        type: "raster",
+                        paint: { "raster-opacity": 0.7 },
+                        layout: { visibility: "none" },
+                    },
+                    {
+                        id: "hazard_jisuberi-layer",
+                        source: "hazard_jisuberi",
+                        type: "raster",
+                        paint: { "raster-opacity": 0.7 },
+                        layout: { visibility: "none" },
                     },
                 ],
             },
         });
 
-        map.on('load', () => {
-            // 背景地図・重ねるタイル地図のコントロール
+        mapInstance.on("load", () => {
             const opacity = new OpacityControl({
                 baseLayers: {
-                    'hazard_flood-layer': '洪水浸水想定区域',
-                    'hazard_hightide-layer': '高潮浸水想定区域',
-                    'hazard_tsunami-layer': '津波浸水想定区域',
-                    'hazard_doseki-layer': '土石流警戒区域',
-                    'hazard_kyukeisha-layer': '急傾斜警戒区域',
-                    'hazard_jisuberi-layer': '地滑り警戒区域',
+                    "hazard_flood-layer": "洪水浸水想定区域",
+                    "hazard_hightide-layer": "高潮浸水想定区域",
+                    "hazard_tsunami-layer": "津波浸水想定区域",
+                    "hazard_doseki-layer": "土石流警戒区域",
+                    "hazard_kyukeisha-layer": "急傾斜警戒区域",
+                    "hazard_jisuberi-layer": "地滑り警戒区域",
                 },
             });
-            map.addControl(opacity, 'top-left');
+            mapInstance.addControl(opacity, "top-left");
         });
 
-        // クリックイベントリスナーを追加
-        map.on('click', (e) => {
-            const coordinates = e.lngLat;
-            const popupContent = `
-                <div>
-                    <p>経度: ${coordinates.lng}<br>緯度: ${coordinates.lat}</p>
-                    <input type="text" id="popup-name" placeholder="名称を入力" />
-                    <button id="popup-save">保存</button>
-                </div>
-            `;
-
-            const newPopup = new maplibregl.Popup()
-                .setLngLat(coordinates)
-                .setHTML(popupContent)
-                .addTo(map);
-
-            setPopup(newPopup);
-
-            // ポップアップの保存ボタンにイベントリスナーを追加
-            newPopup
-                .getElement()
-                .querySelector('#popup-save')
-                ?.addEventListener('click', () => {
-                    const name = (
-                        document.getElementById(
-                            'popup-name'
-                        ) as HTMLInputElement
-                    ).value;
-                    alert(
-                        `名称: ${name}\n経度: ${coordinates.lng}\n緯度: ${coordinates.lat}`
-                    );
-                    newPopup.remove();
-                });
-        });
+        setMap(mapInstance);
 
         return () => {
-            map.remove();
+            mapInstance.remove();
         };
     }, []);
 
-    return <div id='map' style={{ height: '80vh' }}></div>;
+    // Add points to the map when they change
+    useEffect(() => {
+        if (!map || !points.length) return;
+
+        // Remove existing points layer if it exists
+        if (map.getLayer("points-layer")) {
+            map.removeLayer("points-layer");
+        }
+        if (map.getSource("points-source")) {
+            map.removeSource("points-source");
+        }
+
+        // Add new points layer
+        map.addSource("points-source", {
+            type: "geojson",
+            data: {
+                type: "FeatureCollection",
+                features: points.map((point) => ({
+                    type: "Feature",
+                    geometry: JSON.parse(point.geom),
+                    properties: {
+                        name: point.name,
+                    },
+                })) as GeoJSONFeature[],
+            },
+        });
+
+        map.addLayer({
+            id: "points-layer",
+            type: "circle",
+            source: "points-source",
+            paint: {
+                "circle-radius": 8,
+                "circle-color": "#000000",
+                "circle-stroke-width": 2,
+                "circle-stroke-color": "#ffffff",
+            },
+        });
+
+        // Add click handler for points
+        map.on("click", "points-layer", (e) => {
+            if (e.features && e.features[0]) {
+                const feature = e.features[0] as GeoJSONFeature;
+                const coordinates = feature.geometry.coordinates.slice();
+                const name = feature.properties.name;
+
+                // Remove existing popup if any
+                if (popup) {
+                    popup.remove();
+                }
+
+                // Create new popup
+                const newPopup = new maplibregl.Popup()
+                    .setLngLat(coordinates as [number, number])
+                    .setHTML(`<div><strong>${name}</strong></div>`)
+                    .addTo(map);
+
+                setPopup(newPopup);
+            }
+        });
+
+        // Change cursor to pointer when hovering over points
+        map.on("mouseenter", "points-layer", () => {
+            map.getCanvas().style.cursor = "pointer";
+        });
+
+        map.on("mouseleave", "points-layer", () => {
+            map.getCanvas().style.cursor = "";
+        });
+    }, [map, points, popup]);
+
+    return <div id='map' style={{ height: "80vh" }}></div>;
 };
 
 export default Map;

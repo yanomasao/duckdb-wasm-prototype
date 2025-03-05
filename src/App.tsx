@@ -1,32 +1,72 @@
-import { useState } from 'react';
-import './App.css';
-import reactLogo from './assets/react.svg';
-import { DuckDbQuery } from './components/DuckDbQuery';
-import { DuckDbResult } from './components/DuckDbResult';
-import Map from './components/Map'; // Import the Map component
-import { useDuckDB } from './hooks/useDuckDb';
-import viteLogo from '/vite.svg';
+import { Table } from "apache-arrow";
+import { useEffect, useState } from "react";
+import "./App.css";
+import reactLogo from "./assets/react.svg";
+import { DuckDbQuery } from "./components/DuckDbQuery";
+import { DuckDbResult } from "./components/DuckDbResult";
+import Map from "./components/Map";
+import { useDuckDB } from "./hooks/useDuckDB";
+import viteLogo from "/vite.svg";
+
+interface Point {
+    geom: string;
+    name: string;
+}
 
 function App() {
     const { db, error: dbError } = useDuckDB();
-    const [queryResult, setQueryResult] = useState<any | null>(null);
+    const [queryResult, setQueryResult] = useState<Table | null>(null);
     const [queryError, setQueryError] = useState<string | null>(null);
     const [file, setFile] = useState<File | null>(null);
+    const [points, setPoints] = useState<Point[]>([]);
+
+    // Fetch points from minato_wk table
+    useEffect(() => {
+        async function fetchPoints() {
+            if (!db) return;
+
+            try {
+                const conn = await db.connect();
+                await conn.query("LOAD spatial;");
+                const result = await conn.query(`
+                    SELECT 
+                        ST_AsGeoJSON(geom) as geom,
+                        名称
+                    FROM minato_wk
+                `);
+
+                // Convert the result to our Point interface
+                const pointsData: Point[] = [];
+                for (let i = 0; i < result.numRows; i++) {
+                    pointsData.push({
+                        geom: result.getChildAt(0)?.get(i) as string,
+                        name: result.getChildAt(1)?.get(i) as string,
+                    });
+                }
+                setPoints(pointsData);
+                await conn.close();
+            } catch (err) {
+                console.error("Error fetching points:", err);
+            }
+        }
+
+        fetchPoints();
+    }, [db]);
 
     const executeQuery = async (query: string) => {
         if (!db) return;
 
         try {
             const conn = await db.connect();
-            await conn.query('LOAD spatial;');
+            await conn.query("LOAD spatial;");
             const result = await conn.query(query);
             setQueryResult(result);
             setQueryError(null);
             await conn.close();
         } catch (err) {
-            console.error('Query error:', err);
+            console.error("Query error:", err);
             setQueryError(
-                err instanceof Error ? err.message : 'Unknown error occurred'
+                err instanceof Error ? err.message : "Unknown error occurred"
             );
             setQueryResult(null);
         }
@@ -42,24 +82,24 @@ function App() {
 
         try {
             const conn = await db.connect();
-            await conn.query('LOAD spatial;');
+            await conn.query("LOAD spatial;");
 
-            const tableName = file.name.split('.')[0];
+            const tableName = file.name.split(".")[0];
             const query = `CREATE TABLE ${tableName} AS SELECT * FROM st_read('http://localhost:5173/tmp/${file.name}');`;
             await conn.query(query);
-            console.log('Table created:', tableName);
+            console.log("Table created:", tableName);
             await conn.close();
             setQueryError(null);
         } catch (err) {
-            console.error('Query error:', err);
+            console.error("Query error:", err);
             setQueryError(
-                err instanceof Error ? err.message : 'Unknown error occurred'
+                err instanceof Error ? err.message : "Unknown error occurred"
             );
         }
     };
 
     const showTables = async () => {
-        await executeQuery('SHOW TABLES;');
+        await executeQuery("SHOW TABLES;");
     };
 
     if (dbError) {
@@ -92,7 +132,7 @@ function App() {
                 />
                 <DuckDbResult result={queryResult} error={queryError} />
             </div>
-            <Map /> {/* Add the Map component */}
+            <Map points={points} />
             <p className='read-the-docs'>
                 Click on the Vite and React logos to learn more
             </p>
