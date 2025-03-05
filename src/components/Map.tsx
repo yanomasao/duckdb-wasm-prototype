@@ -188,6 +188,54 @@ const Map: React.FC<MapProps> = ({ points = [] }) => {
                 },
             });
             mapInstance.addControl(opacity, "top-left");
+
+            // Add click event handler for the map
+            mapInstance.on("click", (e) => {
+                const { lng, lat } = e.lngLat;
+                const coordinates = `緯度: ${lat.toFixed(
+                    6
+                )}, 経度: ${lng.toFixed(6)}`;
+
+                // Remove existing popup if any
+                if (popup) {
+                    popup.remove();
+                }
+
+                // Create new popup with form
+                const newPopup = new maplibregl.Popup()
+                    .setLngLat([lng, lat])
+                    .setHTML(
+                        `
+                        <div>
+                            <strong>${coordinates}</strong>
+                            <form id="point-form" style="margin-top: 10px;">
+                                <input type="text" id="point-name" placeholder="名称を入力" style="width: 100%; padding: 5px; margin-bottom: 5px;">
+                                <button type="submit" style="width: 100%; padding: 5px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">保存</button>
+                            </form>
+                        </div>
+                    `
+                    )
+                    .addTo(mapInstance);
+
+                // Add form submit handler
+                const form = document.getElementById("point-form");
+                if (form) {
+                    form.addEventListener("submit", (e) => {
+                        e.preventDefault();
+                        const nameInput = document.getElementById(
+                            "point-name"
+                        ) as HTMLInputElement;
+                        const name = nameInput.value;
+                        if (name) {
+                            // TODO: ここで名称を保存する処理を追加
+                            console.log("保存された名称:", name);
+                            newPopup.remove();
+                        }
+                    });
+                }
+
+                setPopup(newPopup);
+            });
         });
 
         setMap(mapInstance);
