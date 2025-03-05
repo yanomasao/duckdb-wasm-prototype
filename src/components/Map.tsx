@@ -2,9 +2,11 @@ import maplibregl from 'maplibre-gl';
 import OpacityControl from 'maplibre-gl-opacity';
 import 'maplibre-gl-opacity/dist/maplibre-gl-opacity.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
 const Map: React.FC = () => {
+    const [popup, setPopup] = useState<maplibregl.Popup | null>(null);
+
     useEffect(() => {
         const map = new maplibregl.Map({
             container: 'map', // div要素のid
@@ -164,15 +166,39 @@ const Map: React.FC = () => {
             map.addControl(opacity, 'top-left');
         });
 
-        // Add click event listener
+        // クリックイベントリスナーを追加
         map.on('click', (e) => {
             const coordinates = e.lngLat;
-            new maplibregl.Popup()
+            const popupContent = `
+                <div>
+                    <p>経度: ${coordinates.lng}<br>緯度: ${coordinates.lat}</p>
+                    <input type="text" id="popup-name" placeholder="名称を入力" />
+                    <button id="popup-save">保存</button>
+                </div>
+            `;
+
+            const newPopup = new maplibregl.Popup()
                 .setLngLat(coordinates)
-                .setHTML(
-                    `Longitude: ${coordinates.lng}<br>Latitude: ${coordinates.lat}`
-                )
+                .setHTML(popupContent)
                 .addTo(map);
+
+            setPopup(newPopup);
+
+            // ポップアップの保存ボタンにイベントリスナーを追加
+            newPopup
+                .getElement()
+                .querySelector('#popup-save')
+                ?.addEventListener('click', () => {
+                    const name = (
+                        document.getElementById(
+                            'popup-name'
+                        ) as HTMLInputElement
+                    ).value;
+                    alert(
+                        `名称: ${name}\n経度: ${coordinates.lng}\n緯度: ${coordinates.lat}`
+                    );
+                    newPopup.remove();
+                });
         });
 
         return () => {
