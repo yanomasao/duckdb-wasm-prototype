@@ -1,3 +1,4 @@
+import * as duckdb from "@duckdb/duckdb-wasm";
 import maplibregl from "maplibre-gl";
 import OpacityControl from "maplibre-gl-opacity";
 import "maplibre-gl-opacity/dist/maplibre-gl-opacity.css";
@@ -11,6 +12,7 @@ interface Point {
 
 interface MapProps {
     points?: Point[];
+    db: duckdb.AsyncDuckDB | null;
 }
 
 interface GeoJSONFeature {
@@ -24,7 +26,7 @@ interface GeoJSONFeature {
     };
 }
 
-const Map: React.FC<MapProps> = ({ points = [] }) => {
+const Map: React.FC<MapProps> = ({ points = [], db }) => {
     const [popup, setPopup] = useState<maplibregl.Popup | null>(null);
     const [map, setMap] = useState<maplibregl.Map | null>(null);
 
@@ -220,18 +222,33 @@ const Map: React.FC<MapProps> = ({ points = [] }) => {
                 // Add form submit handler
                 const form = document.getElementById("point-form");
                 if (form) {
-                    form.addEventListener("submit", (e) => {
+                    form.addEventListener("submit", async (e) => {
                         e.preventDefault();
                         const nameInput = document.getElementById(
                             "point-name"
                         ) as HTMLInputElement;
                         const name = nameInput.value;
-                        if (name) {
-                            // TODO: ここで名称を保存する処理を追加
-                            alert(
-                                `保存された名称: ${name}\n緯度: ${lat}\n経度: ${lng}`
-                            );
-                            newPopup.remove();
+                        if (name && db) {
+                            try {
+                                const conn = await db.connect();
+                                await conn.query("LOAD spatial;");
+
+                                // Create a point geometry from the clicked coordinates
+                                const pointGeom = `ST_POINT(${lng}, ${lat})`;
+
+                                // Insert the point into minato_wk table
+                                await conn.query(`
+                                    INSERT INTO minato_wk (geom, 名称)
+                                    VALUES (${pointGeom}, '${name}')
+                                `);
+                                await conn.query("CHECKPOINT");
+                                await conn.close();
+                                alert("ポイントを保存しました");
+                                newPopup.remove();
+                            } catch (err) {
+                                console.error("Error saving point:", err);
+                                alert("ポイントの保存に失敗しました");
+                            }
                         }
                     });
                 }
@@ -245,7 +262,7 @@ const Map: React.FC<MapProps> = ({ points = [] }) => {
         return () => {
             mapInstance.remove();
         };
-    }, []);
+    }, [db]);
 
     // Add points to the map when they change
     useEffect(() => {
