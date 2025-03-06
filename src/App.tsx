@@ -256,6 +256,24 @@ function App() {
         }
     };
 
+    const handleShowTableData = async (tableName: string) => {
+        if (!db) return;
+
+        try {
+            const conn = await db.connect();
+            const result = await conn.query(`SELECT * FROM ${tableName};`);
+            setQueryResult(result);
+            setQueryError(null);
+            await conn.close();
+        } catch (err) {
+            console.error("Error fetching table data:", err);
+            setQueryError(
+                err instanceof Error ? err.message : "Unknown error occurred"
+            );
+            setQueryResult(null);
+        }
+    };
+
     if (dbError) {
         return <div>Error initializing DuckDB: {dbError.message}</div>;
     }
@@ -293,6 +311,7 @@ function App() {
                     onColumnAliasChange={handleColumnAliasChange}
                     onTableDelete={handleTableDelete}
                     onTableConditionChange={handleTableConditionChange}
+                    onShowTableData={handleShowTableData}
                 />
             </div>
             <Map points={points} db={db} />

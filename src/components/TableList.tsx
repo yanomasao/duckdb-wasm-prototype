@@ -13,6 +13,7 @@ interface TableListProps {
     ) => void;
     onTableDelete: (tableName: string) => void;
     onTableConditionChange: (tableName: string, condition: string) => void;
+    onShowTableData: (tableName: string) => void;
 }
 
 interface ColumnInfo {
@@ -29,6 +30,7 @@ export const TableList: React.FC<TableListProps> = ({
     onColumnAliasChange,
     onTableDelete,
     onTableConditionChange,
+    onShowTableData,
 }) => {
     const [expandedTable, setExpandedTable] = useState<string | null>(null);
     const [columns, setColumns] = useState<{ [key: string]: ColumnInfo[] }>({});
@@ -141,21 +143,42 @@ export const TableList: React.FC<TableListProps> = ({
                                     )}
                                 </span>
                             </label>
-                            <button
-                                onClick={() => onTableDelete(table)}
+                            <div
                                 style={{
-                                    fontSize: "12px",
-                                    padding: "2px 4px",
-                                    backgroundColor: "#ff4444",
-                                    color: "white",
-                                    border: "none",
-                                    borderRadius: "3px",
-                                    cursor: "pointer",
+                                    display: "flex",
+                                    gap: "8px",
                                     marginLeft: "8px",
                                 }}
                             >
-                                削除
-                            </button>
+                                <button
+                                    onClick={() => onShowTableData(table)}
+                                    style={{
+                                        fontSize: "12px",
+                                        padding: "2px 4px",
+                                        backgroundColor: "#4CAF50",
+                                        color: "white",
+                                        border: "none",
+                                        borderRadius: "3px",
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    一覧
+                                </button>
+                                <button
+                                    onClick={() => onTableDelete(table)}
+                                    style={{
+                                        fontSize: "12px",
+                                        padding: "2px 4px",
+                                        backgroundColor: "#ff4444",
+                                        color: "white",
+                                        border: "none",
+                                        borderRadius: "3px",
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    削除
+                                </button>
+                            </div>
                         </div>
                         {expandedTable === table && (
                             <>
