@@ -5,12 +5,15 @@ import reactLogo from "./assets/react.svg";
 import { DuckDbQuery } from "./components/DuckDbQuery";
 import { DuckDbResult } from "./components/DuckDbResult";
 import Map from "./components/Map";
+import { TableList } from "./components/TableList";
 import { useDuckDB } from "./hooks/useDuckDB";
 import viteLogo from "/vite.svg";
 
 interface Point {
     geom: string;
     name: string;
+    isQueryResult?: boolean;
+    color?: string;
 }
 
 function App() {
@@ -19,39 +22,104 @@ function App() {
     const [queryError, setQueryError] = useState<string | null>(null);
     const [file, setFile] = useState<File | null>(null);
     const [points, setPoints] = useState<Point[]>([]);
+    const [tables, setTables] = useState<string[]>([]);
+    const [selectedTables, setSelectedTables] = useState<string[]>([]);
+    const [columnAliases, setColumnAliases] = useState<{
+        [key: string]: { [key: string]: string };
+    }>({});
 
-    // Fetch points from minato_wk table
+    // テーブルごとの色を管理するstate
+    const [tableColors, setTableColors] = useState<{ [key: string]: string }>(
+        {}
+    );
+
+    // ランダムな色を生成する関数
+    const generateRandomColor = () => {
+        // HSLカラーモデルを使用
+        // H: 0-360 (色相)
+        // S: 70% (彩度)
+        // L: 50% (明度)
+        const hue = Math.floor(Math.random() * 360);
+        return `hsl(${hue}, 70%, 50%)`;
+    };
+
+    // Fetch tables
+    const fetchTables = async () => {
+        if (!db) return;
+
+        try {
+            const conn = await db.connect();
+            const result = await conn.query("SHOW TABLES;");
+            const tableNames: string[] = [];
+            for (let i = 0; i < result.numRows; i++) {
+                tableNames.push(result.getChildAt(0)?.get(i) as string);
+            }
+            setTables(tableNames);
+            await conn.close();
+        } catch (err) {
+            console.error("Error fetching tables:", err);
+        }
+    };
+
+    // Fetch data from selected tables
     useEffect(() => {
-        async function fetchPoints() {
-            if (!db) return;
+        async function fetchSelectedTablesData() {
+            if (!db || selectedTables.length === 0) return;
 
             try {
                 const conn = await db.connect();
                 await conn.query("LOAD spatial;");
-                const result = await conn.query(`
-                    SELECT 
-                        ST_AsGeoJSON(geom) as geom,
-                        name
-                    FROM tokyo
-                `);
 
-                // Convert the result to our Point interface
-                const pointsData: Point[] = [];
-                for (let i = 0; i < result.numRows; i++) {
-                    pointsData.push({
-                        geom: result.getChildAt(0)?.get(i) as string,
-                        name: result.getChildAt(1)?.get(i) as string,
-                    });
+                const allPoints: Point[] = [];
+                for (const tableName of selectedTables) {
+                    const columns = columnAliases[tableName] || {};
+                    const selectColumns = Object.entries(columns)
+                        .map(([name, alias]) => `${name} as ${alias}`)
+                        .join(", ");
+
+                    const query = `
+                        SELECT 
+                            ST_AsGeoJSON(geom) as geom,
+                            ${selectColumns || "name"}
+                        FROM ${tableName}
+                    `;
+
+                    const result = await conn.query(query);
+
+                    for (let i = 0; i < result.numRows; i++) {
+                        allPoints.push({
+                            geom: result.getChildAt(0)?.get(i) as string,
+                            name: result.getChildAt(1)?.get(i) as string,
+                            isQueryResult: true,
+                            color:
+                                tableColors[tableName] || generateRandomColor(),
+                        });
+                    }
                 }
-                setPoints(pointsData);
+                setPoints(allPoints);
                 await conn.close();
             } catch (err) {
-                console.error("Error fetching points:", err);
+                console.error("Error fetching table data:", err);
             }
         }
 
-        fetchPoints();
-    }, [db]);
+        fetchSelectedTablesData();
+    }, [db, selectedTables, columnAliases, tableColors]);
+
+    const handleTableSelect = (tableName: string) => {
+        setSelectedTables((prev) => {
+            if (prev.includes(tableName)) {
+                return prev.filter((t) => t !== tableName);
+            } else {
+                // 新しいテーブルが選択されたときに色を生成
+                setTableColors((prev) => ({
+                    ...prev,
+                    [tableName]: generateRandomColor(),
+                }));
+                return [...prev, tableName];
+            }
+        });
+    };
 
     const executeQuery = async (query: string) => {
         if (!db) return;
@@ -90,6 +158,8 @@ function App() {
             console.log("Table created:", tableName);
             await conn.close();
             setQueryError(null);
+            // テーブルリストを更新
+            fetchTables();
         } catch (err) {
             console.error("Query error:", err);
             setQueryError(
@@ -99,7 +169,21 @@ function App() {
     };
 
     const showTables = async () => {
-        await executeQuery("SHOW TABLES;");
+        await fetchTables();
+    };
+
+    const handleColumnAliasChange = (
+        tableName: string,
+        columnName: string,
+        alias: string
+    ) => {
+        setColumnAliases((prev) => ({
+            ...prev,
+            [tableName]: {
+                ...(prev[tableName] || {}),
+                [columnName]: alias,
+            },
+        }));
     };
 
     if (dbError) {
@@ -131,6 +215,13 @@ function App() {
                     disabled={!db}
                 />
                 <DuckDbResult result={queryResult} error={queryError} />
+                <TableList
+                    tables={tables}
+                    selectedTables={selectedTables}
+                    onTableSelect={handleTableSelect}
+                    db={db}
+                    onColumnAliasChange={handleColumnAliasChange}
+                />
             </div>
             <Map points={points} db={db} />
             <p className='read-the-docs'>

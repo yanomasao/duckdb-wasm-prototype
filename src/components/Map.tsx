@@ -9,6 +9,7 @@ interface Point {
     geom: string;
     name: string;
     isQueryResult?: boolean;
+    color?: string;
 }
 
 interface MapProps {
@@ -25,6 +26,7 @@ interface GeoJSONFeature {
     properties: {
         name: string;
         isQueryResult: boolean;
+        color?: string;
     };
 }
 
@@ -299,6 +301,7 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
                         properties: {
                             name: point.name,
                             isQueryResult: point.isQueryResult || false,
+                            color: point.color || "#FF0000",
                         },
                     };
                 } catch (err) {
@@ -328,12 +331,7 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
                 filter: ["==", ["geometry-type"], "Point"],
                 paint: {
                     "circle-radius": 8,
-                    "circle-color": [
-                        "case",
-                        ["get", "isQueryResult"],
-                        "#FF0000", // クエリ結果のポイントは赤色
-                        "#000000", // 通常のポイントは黒色
-                    ],
+                    "circle-color": ["get", "color"],
                     "circle-stroke-width": 2,
                     "circle-stroke-color": "#ffffff",
                 },
@@ -346,12 +344,7 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
                 source: "points-source",
                 filter: ["==", ["geometry-type"], "LineString"],
                 paint: {
-                    "line-color": [
-                        "case",
-                        ["get", "isQueryResult"],
-                        "#FF0000", // クエリ結果の線は赤色
-                        "#000000", // 通常の線は黒色
-                    ],
+                    "line-color": ["get", "color"],
                     "line-width": 3,
                     "line-opacity": 0.8,
                 },
@@ -364,19 +357,9 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
                 source: "points-source",
                 filter: ["==", ["geometry-type"], "Polygon"],
                 paint: {
-                    "fill-color": [
-                        "case",
-                        ["get", "isQueryResult"],
-                        "#FF0000", // クエリ結果のポリゴンは赤色
-                        "#000000", // 通常のポリゴンは黒色
-                    ],
+                    "fill-color": ["get", "color"],
                     "fill-opacity": 0.2,
-                    "fill-outline-color": [
-                        "case",
-                        ["get", "isQueryResult"],
-                        "#FF0000",
-                        "#000000",
-                    ],
+                    "fill-outline-color": ["get", "color"],
                 },
             });
 
@@ -387,12 +370,7 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
                 source: "points-source",
                 filter: ["==", ["geometry-type"], "Polygon"],
                 paint: {
-                    "line-color": [
-                        "case",
-                        ["get", "isQueryResult"],
-                        "#FF0000",
-                        "#000000",
-                    ],
+                    "line-color": ["get", "color"],
                     "line-width": 2,
                     "line-opacity": 1,
                 },
