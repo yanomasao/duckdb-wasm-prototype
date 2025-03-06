@@ -28,6 +28,11 @@ function App() {
         [key: string]: { [key: string]: string };
     }>({});
 
+    // テーブルごとの条件を管理するstate
+    const [tableConditions, setTableConditions] = useState<{
+        [key: string]: string;
+    }>({});
+
     // テーブルごとの色を管理するstate
     const [tableColors, setTableColors] = useState<{ [key: string]: string }>(
         {}
@@ -71,17 +76,22 @@ function App() {
                 await conn.query("LOAD spatial;");
 
                 const allPoints: Point[] = [];
+
                 for (const tableName of selectedTables) {
                     const columns = columnAliases[tableName] || {};
                     const selectColumns = Object.entries(columns)
                         .map(([name, alias]) => `${name} as ${alias}`)
                         .join(", ");
 
+                    const condition = tableConditions[tableName] || "";
+                    const whereClause = condition ? `WHERE ${condition}` : "";
+
                     const query = `
                         SELECT 
                             ST_AsGeoJSON(geom) as geom,
                             ${selectColumns || "name"}
                         FROM ${tableName}
+                        ${whereClause}
                     `;
 
                     const result = await conn.query(query);
@@ -104,7 +114,7 @@ function App() {
         }
 
         fetchSelectedTablesData();
-    }, [db, selectedTables, columnAliases, tableColors]);
+    }, [db, selectedTables, columnAliases, tableColors, tableConditions]);
 
     const handleTableSelect = (tableName: string) => {
         setSelectedTables((prev) => {
@@ -186,6 +196,16 @@ function App() {
         }));
     };
 
+    const handleTableConditionChange = (
+        tableName: string,
+        condition: string
+    ) => {
+        setTableConditions((prev) => ({
+            ...prev,
+            [tableName]: condition,
+        }));
+    };
+
     const handleTableDelete = async (tableName: string) => {
         if (!db) return;
 
@@ -222,6 +242,13 @@ function App() {
                 const newAliases = { ...prev };
                 delete newAliases[tableName];
                 return newAliases;
+            });
+
+            // テーブルの条件情報を削除
+            setTableConditions((prev) => {
+                const newConditions = { ...prev };
+                delete newConditions[tableName];
+                return newConditions;
             });
         } catch (err) {
             console.error("Error deleting table:", err);
@@ -265,6 +292,7 @@ function App() {
                     db={db}
                     onColumnAliasChange={handleColumnAliasChange}
                     onTableDelete={handleTableDelete}
+                    onTableConditionChange={handleTableConditionChange}
                 />
             </div>
             <Map points={points} db={db} />

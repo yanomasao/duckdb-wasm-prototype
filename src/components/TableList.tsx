@@ -12,6 +12,7 @@ interface TableListProps {
         alias: string
     ) => void;
     onTableDelete: (tableName: string) => void;
+    onTableConditionChange: (tableName: string, condition: string) => void;
 }
 
 interface ColumnInfo {
@@ -27,6 +28,7 @@ export const TableList: React.FC<TableListProps> = ({
     db,
     onColumnAliasChange,
     onTableDelete,
+    onTableConditionChange,
 }) => {
     const [expandedTable, setExpandedTable] = useState<string | null>(null);
     const [columns, setColumns] = useState<{ [key: string]: ColumnInfo[] }>({});
@@ -35,6 +37,9 @@ export const TableList: React.FC<TableListProps> = ({
         column: string;
     } | null>(null);
     const [aliasText, setAliasText] = useState("");
+    const [tableConditions, setTableConditions] = useState<{
+        [key: string]: string;
+    }>({});
 
     const handleTableClick = async (tableName: string) => {
         if (!db) return;
@@ -105,6 +110,14 @@ export const TableList: React.FC<TableListProps> = ({
         }
     };
 
+    const handleConditionChange = (tableName: string, condition: string) => {
+        setTableConditions((prev) => ({
+            ...prev,
+            [tableName]: condition,
+        }));
+        onTableConditionChange(tableName, condition);
+    };
+
     return (
         <div className='table-list'>
             <h3>テーブル一覧</h3>
@@ -145,132 +158,175 @@ export const TableList: React.FC<TableListProps> = ({
                             </button>
                         </div>
                         {expandedTable === table && (
-                            <div className='column-list'>
-                                {columns[table]?.map((column) => (
-                                    <div
-                                        key={column.name}
-                                        className='column-item'
-                                    >
-                                        <label className='column-checkbox'>
-                                            <input
-                                                type='checkbox'
-                                                checked={column.selected}
-                                                onChange={() =>
-                                                    handleColumnSelect(
-                                                        table,
-                                                        column.name
-                                                    )
-                                                }
-                                            />
-                                            <div
-                                                style={{
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "8px",
-                                                }}
-                                            >
-                                                {column.name}
-                                                {editingAlias?.table ===
-                                                    table &&
-                                                editingAlias?.column ===
-                                                    column.name ? (
-                                                    <div
-                                                        style={{
-                                                            display: "flex",
-                                                            gap: "4px",
-                                                        }}
-                                                    >
-                                                        <input
-                                                            type='text'
-                                                            value={aliasText}
-                                                            onChange={(e) =>
-                                                                setAliasText(
-                                                                    e.target
-                                                                        .value
-                                                                )
-                                                            }
-                                                            placeholder='エイリアス'
+                            <>
+                                <div className='column-list'>
+                                    {columns[table]?.map((column) => (
+                                        <div
+                                            key={column.name}
+                                            className='column-item'
+                                        >
+                                            <label className='column-checkbox'>
+                                                <input
+                                                    type='checkbox'
+                                                    checked={column.selected}
+                                                    onChange={() =>
+                                                        handleColumnSelect(
+                                                            table,
+                                                            column.name
+                                                        )
+                                                    }
+                                                />
+                                                <div
+                                                    style={{
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        gap: "8px",
+                                                    }}
+                                                >
+                                                    {column.name}
+                                                    {editingAlias?.table ===
+                                                        table &&
+                                                    editingAlias?.column ===
+                                                        column.name ? (
+                                                        <div
                                                             style={{
-                                                                fontSize:
-                                                                    "12px",
-                                                                padding:
-                                                                    "2px 4px",
-                                                            }}
-                                                        />
-                                                        <button
-                                                            onClick={
-                                                                handleAliasSave
-                                                            }
-                                                            style={{
-                                                                fontSize:
-                                                                    "12px",
-                                                                padding:
-                                                                    "2px 4px",
+                                                                display: "flex",
+                                                                gap: "4px",
                                                             }}
                                                         >
-                                                            保存
-                                                        </button>
-                                                        <button
-                                                            onClick={() =>
-                                                                setEditingAlias(
-                                                                    null
-                                                                )
-                                                            }
-                                                            style={{
-                                                                fontSize:
-                                                                    "12px",
-                                                                padding:
-                                                                    "2px 4px",
-                                                            }}
-                                                        >
-                                                            キャンセル
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <div
-                                                        style={{
-                                                            display: "flex",
-                                                            alignItems:
-                                                                "center",
-                                                            gap: "4px",
-                                                        }}
-                                                    >
-                                                        {column.alias && (
-                                                            <span
+                                                            <input
+                                                                type='text'
+                                                                value={
+                                                                    aliasText
+                                                                }
+                                                                onChange={(e) =>
+                                                                    setAliasText(
+                                                                        e.target
+                                                                            .value
+                                                                    )
+                                                                }
+                                                                placeholder='エイリアス'
                                                                 style={{
                                                                     fontSize:
                                                                         "12px",
-                                                                    color: "#666",
+                                                                    padding:
+                                                                        "2px 4px",
+                                                                }}
+                                                            />
+                                                            <button
+                                                                onClick={
+                                                                    handleAliasSave
+                                                                }
+                                                                style={{
+                                                                    fontSize:
+                                                                        "12px",
+                                                                    padding:
+                                                                        "2px 4px",
                                                                 }}
                                                             >
-                                                                as{" "}
-                                                                {column.alias}
-                                                            </span>
-                                                        )}
-                                                        <button
-                                                            onClick={() =>
-                                                                handleAliasEdit(
-                                                                    table,
-                                                                    column.name,
-                                                                    column.alias
-                                                                )
-                                                            }
+                                                                保存
+                                                            </button>
+                                                            <button
+                                                                onClick={() =>
+                                                                    setEditingAlias(
+                                                                        null
+                                                                    )
+                                                                }
+                                                                style={{
+                                                                    fontSize:
+                                                                        "12px",
+                                                                    padding:
+                                                                        "2px 4px",
+                                                                }}
+                                                            >
+                                                                キャンセル
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div
                                                             style={{
-                                                                fontSize:
-                                                                    "12px",
-                                                                padding:
-                                                                    "2px 4px",
+                                                                display: "flex",
+                                                                alignItems:
+                                                                    "center",
+                                                                gap: "4px",
                                                             }}
                                                         >
-                                                            編集
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </label>
-                                    </div>
-                                ))}
-                            </div>
+                                                            {column.alias && (
+                                                                <span
+                                                                    style={{
+                                                                        fontSize:
+                                                                            "12px",
+                                                                        color: "#666",
+                                                                    }}
+                                                                >
+                                                                    as{" "}
+                                                                    {
+                                                                        column.alias
+                                                                    }
+                                                                </span>
+                                                            )}
+                                                            <button
+                                                                onClick={() =>
+                                                                    handleAliasEdit(
+                                                                        table,
+                                                                        column.name,
+                                                                        column.alias
+                                                                    )
+                                                                }
+                                                                style={{
+                                                                    fontSize:
+                                                                        "12px",
+                                                                    padding:
+                                                                        "2px 4px",
+                                                                }}
+                                                            >
+                                                                編集
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </label>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div
+                                    className='condition-input'
+                                    style={{
+                                        marginTop: "8px",
+                                        padding: "8px",
+                                        backgroundColor: "#f5f5f5",
+                                        borderRadius: "4px",
+                                    }}
+                                >
+                                    <label
+                                        style={{
+                                            display: "block",
+                                            fontSize: "12px",
+                                            marginBottom: "4px",
+                                        }}
+                                    >
+                                        条件 (WHERE句):
+                                    </label>
+                                    <input
+                                        type='text'
+                                        value={tableConditions[table] || ""}
+                                        onChange={(e) =>
+                                            handleConditionChange(
+                                                table,
+                                                e.target.value
+                                            )
+                                        }
+                                        placeholder='例: name LIKE "%駅%"'
+                                        style={{
+                                            width: "100%",
+                                            fontSize: "12px",
+                                            padding: "4px",
+                                            border: "1px solid #ddd",
+                                            borderRadius: "3px",
+                                        }}
+                                    />
+                                </div>
+                            </>
                         )}
                     </div>
                 ))}
