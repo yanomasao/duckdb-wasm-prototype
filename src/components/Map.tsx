@@ -8,6 +8,7 @@ import React, { useEffect, useState } from "react";
 interface Point {
     geom: string;
     name: string;
+    isQueryResult?: boolean;
 }
 
 interface MapProps {
@@ -18,11 +19,12 @@ interface MapProps {
 interface GeoJSONFeature {
     type: "Feature";
     geometry: {
-        type: string;
-        coordinates: number[];
+        type: "Point" | "Polygon" | "LineString";
+        coordinates: number[] | number[][] | number[][][];
     };
     properties: {
         name: string;
+        isQueryResult: boolean;
     };
 }
 
@@ -268,47 +270,153 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
     useEffect(() => {
         if (!map || !points.length) return;
 
-        // Remove existing points layer if it exists
-        if (map.getLayer("points-layer")) {
-            map.removeLayer("points-layer");
-        }
+        // Remove existing layers and source
+        const layers = [
+            "points-layer",
+            "lines-layer",
+            "polygons-layer",
+            "polygons-outline-layer",
+        ];
+        layers.forEach((layer) => {
+            if (map.getLayer(layer)) {
+                map.removeLayer(layer);
+            }
+        });
+
         if (map.getSource("points-source")) {
             map.removeSource("points-source");
         }
 
         // Add new points layer
-        map.addSource("points-source", {
-            type: "geojson",
-            data: {
-                type: "FeatureCollection",
-                features: points.map((point) => ({
-                    type: "Feature",
-                    geometry: JSON.parse(point.geom),
-                    properties: {
-                        name: point.name,
-                    },
-                })) as GeoJSONFeature[],
-            },
-        });
+        const features = points
+            .map((point) => {
+                try {
+                    const geometry = JSON.parse(point.geom);
+                    console.log("Parsed geometry:", geometry); // デバッグ用
+                    return {
+                        type: "Feature",
+                        geometry,
+                        properties: {
+                            name: point.name,
+                            isQueryResult: point.isQueryResult || false,
+                        },
+                    };
+                } catch (err) {
+                    console.error("Error parsing GeoJSON:", point.geom, err);
+                    return null;
+                }
+            })
+            .filter((feature): feature is GeoJSONFeature => feature !== null);
 
-        map.addLayer({
-            id: "points-layer",
-            type: "circle",
-            source: "points-source",
-            paint: {
-                "circle-radius": 8,
-                "circle-color": "#000000",
-                "circle-stroke-width": 2,
-                "circle-stroke-color": "#ffffff",
-            },
-        });
+        console.log("Features to display:", features); // デバッグ用
 
-        // Add click handler for points
-        map.on("click", "points-layer", (e) => {
+        // Add source and layers only if there are features
+        if (features.length > 0) {
+            map.addSource("points-source", {
+                type: "geojson",
+                data: {
+                    type: "FeatureCollection",
+                    features,
+                },
+            });
+
+            // Add points layer
+            map.addLayer({
+                id: "points-layer",
+                type: "circle",
+                source: "points-source",
+                filter: ["==", ["geometry-type"], "Point"],
+                paint: {
+                    "circle-radius": 8,
+                    "circle-color": [
+                        "case",
+                        ["get", "isQueryResult"],
+                        "#FF0000", // クエリ結果のポイントは赤色
+                        "#000000", // 通常のポイントは黒色
+                    ],
+                    "circle-stroke-width": 2,
+                    "circle-stroke-color": "#ffffff",
+                },
+            });
+
+            // Add lines layer
+            map.addLayer({
+                id: "lines-layer",
+                type: "line",
+                source: "points-source",
+                filter: ["==", ["geometry-type"], "LineString"],
+                paint: {
+                    "line-color": [
+                        "case",
+                        ["get", "isQueryResult"],
+                        "#FF0000", // クエリ結果の線は赤色
+                        "#000000", // 通常の線は黒色
+                    ],
+                    "line-width": 3,
+                    "line-opacity": 0.8,
+                },
+            });
+
+            // Add polygons layer
+            map.addLayer({
+                id: "polygons-layer",
+                type: "fill",
+                source: "points-source",
+                filter: ["==", ["geometry-type"], "Polygon"],
+                paint: {
+                    "fill-color": [
+                        "case",
+                        ["get", "isQueryResult"],
+                        "#FF0000", // クエリ結果のポリゴンは赤色
+                        "#000000", // 通常のポリゴンは黒色
+                    ],
+                    "fill-opacity": 0.2,
+                    "fill-outline-color": [
+                        "case",
+                        ["get", "isQueryResult"],
+                        "#FF0000",
+                        "#000000",
+                    ],
+                },
+            });
+
+            // Add polygon outline layer
+            map.addLayer({
+                id: "polygons-outline-layer",
+                type: "line",
+                source: "points-source",
+                filter: ["==", ["geometry-type"], "Polygon"],
+                paint: {
+                    "line-color": [
+                        "case",
+                        ["get", "isQueryResult"],
+                        "#FF0000",
+                        "#000000",
+                    ],
+                    "line-width": 2,
+                    "line-opacity": 1,
+                },
+            });
+        }
+
+        // Add click handler for points, lines and polygons
+        const clickHandler = (e: any) => {
             if (e.features && e.features[0]) {
-                const feature = e.features[0] as GeoJSONFeature;
-                const coordinates = feature.geometry.coordinates.slice();
-                const name = feature.properties.name;
+                const feature = e.features[0];
+                const geometry = feature.geometry;
+                const coordinates =
+                    geometry.type === "Point"
+                        ? (geometry.coordinates as [number, number])
+                        : geometry.type === "LineString"
+                        ? ((geometry.coordinates as number[][])[0] as [
+                              number,
+                              number
+                          ])
+                        : ((geometry.coordinates as number[][][])[0][0] as [
+                              number,
+                              number
+                          ]);
+                const name = feature.properties?.name as string;
 
                 // Remove existing popup if any
                 if (popup) {
@@ -317,20 +425,52 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
 
                 // Create new popup
                 const newPopup = new maplibregl.Popup()
-                    .setLngLat(coordinates as [number, number])
+                    .setLngLat(coordinates)
                     .setHTML(`<div><strong>${name}</strong></div>`)
                     .addTo(map);
 
                 setPopup(newPopup);
             }
-        });
+        };
 
-        // Change cursor to pointer when hovering over points
+        // Remove existing event listeners
+        map.off("click", "points-layer", clickHandler);
+        map.off("click", "lines-layer", clickHandler);
+        map.off("click", "polygons-layer", clickHandler);
+        map.off("click", "polygons-outline-layer", clickHandler);
+
+        // Add new event listeners
+        map.on("click", "points-layer", clickHandler);
+        map.on("click", "lines-layer", clickHandler);
+        map.on("click", "polygons-layer", clickHandler);
+        map.on("click", "polygons-outline-layer", clickHandler);
+
+        // Remove existing hover event listeners
+        map.off("mouseenter", "points-layer");
+        map.off("mouseenter", "lines-layer");
+        map.off("mouseenter", "polygons-layer");
+        map.off("mouseleave", "points-layer");
+        map.off("mouseleave", "lines-layer");
+        map.off("mouseleave", "polygons-layer");
+
+        // Add new hover event listeners
         map.on("mouseenter", "points-layer", () => {
+            map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseenter", "lines-layer", () => {
+            map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseenter", "polygons-layer", () => {
             map.getCanvas().style.cursor = "pointer";
         });
 
         map.on("mouseleave", "points-layer", () => {
+            map.getCanvas().style.cursor = "";
+        });
+        map.on("mouseleave", "lines-layer", () => {
+            map.getCanvas().style.cursor = "";
+        });
+        map.on("mouseleave", "polygons-layer", () => {
             map.getCanvas().style.cursor = "";
         });
     }, [map, points, popup]);

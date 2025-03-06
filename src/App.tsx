@@ -31,8 +31,8 @@ function App() {
                 const result = await conn.query(`
                     SELECT 
                         ST_AsGeoJSON(geom) as geom,
-                        名称
-                    FROM minato_wk
+                        name
+                    FROM tokyo
                 `);
 
                 // Convert the result to our Point interface
