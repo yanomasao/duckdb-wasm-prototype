@@ -127,22 +127,30 @@ export const TableList: React.FC<TableListProps> = ({
                 {tables.map((table) => (
                     <div key={table} className='table-item'>
                         <div className='table-header'>
-                            <label className='table-checkbox'>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "8px",
+                                }}
+                            >
                                 <input
                                     type='checkbox'
                                     checked={selectedTables.includes(table)}
                                     onChange={() => onTableSelect(table)}
+                                    style={{ margin: 0 }}
                                 />
                                 <span
                                     className='table-name'
                                     onClick={() => handleTableClick(table)}
+                                    style={{ cursor: "pointer" }}
                                 >
                                     {table}
                                     {expandedTable === table && (
                                         <span className='expand-icon'>▼</span>
                                     )}
                                 </span>
-                            </label>
+                            </div>
                             <div
                                 style={{
                                     display: "flex",
