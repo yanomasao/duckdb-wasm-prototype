@@ -404,7 +404,21 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
                 // Create new popup
                 const newPopup = new maplibregl.Popup()
                     .setLngLat(coordinates)
-                    .setHTML(`<div><strong>${name}</strong></div>`)
+                    .setHTML(
+                        `
+                        <div>
+                            <strong>${name}</strong>
+                            <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                                <div>緯度: ${coordinates[1].toFixed(6)}</div>
+                                <div>経度: ${coordinates[0].toFixed(6)}</div>
+                                <div style="margin-top: 4px; word-break: break-all;">
+                                    <strong>geom:</strong><br>
+                                    ${JSON.stringify(geometry, null, 2)}
+                                </div>
+                            </div>
+                        </div>
+                    `
+                    )
                     .addTo(map);
 
                 setPopup(newPopup);
