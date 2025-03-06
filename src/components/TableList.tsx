@@ -11,6 +11,7 @@ interface TableListProps {
         columnName: string,
         alias: string
     ) => void;
+    onTableDelete: (tableName: string) => void;
 }
 
 interface ColumnInfo {
@@ -25,6 +26,7 @@ export const TableList: React.FC<TableListProps> = ({
     onTableSelect,
     db,
     onColumnAliasChange,
+    onTableDelete,
 }) => {
     const [expandedTable, setExpandedTable] = useState<string | null>(null);
     const [columns, setColumns] = useState<{ [key: string]: ColumnInfo[] }>({});
@@ -126,6 +128,21 @@ export const TableList: React.FC<TableListProps> = ({
                                     )}
                                 </span>
                             </label>
+                            <button
+                                onClick={() => onTableDelete(table)}
+                                style={{
+                                    fontSize: "12px",
+                                    padding: "2px 4px",
+                                    backgroundColor: "#ff4444",
+                                    color: "white",
+                                    border: "none",
+                                    borderRadius: "3px",
+                                    cursor: "pointer",
+                                    marginLeft: "8px",
+                                }}
+                            >
+                                削除
+                            </button>
                         </div>
                         {expandedTable === table && (
                             <div className='column-list'>

@@ -186,6 +186,49 @@ function App() {
         }));
     };
 
+    const handleTableDelete = async (tableName: string) => {
+        if (!db) return;
+
+        // 確認ダイアログを表示
+        if (
+            !window.confirm(
+                `テーブル "${tableName}" を削除してもよろしいですか？`
+            )
+        ) {
+            return;
+        }
+
+        try {
+            const conn = await db.connect();
+            await conn.query(`DROP TABLE ${tableName};`);
+            await conn.close();
+            console.log("Table deleted:", tableName);
+
+            // テーブルリストを更新
+            fetchTables();
+
+            // 選択中のテーブルから削除
+            setSelectedTables((prev) => prev.filter((t) => t !== tableName));
+
+            // テーブルの色情報を削除
+            setTableColors((prev) => {
+                const newColors = { ...prev };
+                delete newColors[tableName];
+                return newColors;
+            });
+
+            // カラムエイリアス情報を削除
+            setColumnAliases((prev) => {
+                const newAliases = { ...prev };
+                delete newAliases[tableName];
+                return newAliases;
+            });
+        } catch (err) {
+            console.error("Error deleting table:", err);
+            alert("テーブルの削除に失敗しました");
+        }
+    };
+
     if (dbError) {
         return <div>Error initializing DuckDB: {dbError.message}</div>;
     }
@@ -221,6 +264,7 @@ function App() {
                     onTableSelect={handleTableSelect}
                     db={db}
                     onColumnAliasChange={handleColumnAliasChange}
+                    onTableDelete={handleTableDelete}
                 />
             </div>
             <Map points={points} db={db} />
