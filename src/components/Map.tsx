@@ -195,70 +195,70 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
             });
             mapInstance.addControl(opacity, "top-left");
 
-            // Add click event handler for the map
-            mapInstance.on("click", (e) => {
-                const { lng, lat } = e.lngLat;
+            // // Add click event handler for the map
+            // mapInstance.on("click", (e) => {
+            //     const { lng, lat } = e.lngLat;
 
-                // Remove existing popup if any
-                if (popup) {
-                    popup.remove();
-                }
+            //     // Remove existing popup if any
+            //     if (popup) {
+            //         popup.remove();
+            //     }
 
-                // Create new popup with form
-                const newPopup = new maplibregl.Popup()
-                    .setLngLat([lng, lat])
-                    .setHTML(
-                        `
-                        <div>
-                            <div style="margin-bottom: 10px;">
-                                <div>緯度: ${lat.toFixed(6)}</div>
-                                <div>経度: ${lng.toFixed(6)}</div>
-                            </div>
-                            <form id="point-form" style="margin-top: 10px;">
-                                <input type="text" id="point-name" placeholder="名称を入力" style="width: 90%; padding: 5px; margin-bottom: 5px;">
-                                <button type="submit" style="width: 100%; padding: 5px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">保存</button>
-                            </form>
-                        </div>
-                    `
-                    )
-                    .addTo(mapInstance);
+            //     // Create new popup with form
+            //     const newPopup = new maplibregl.Popup()
+            //         .setLngLat([lng, lat])
+            //         .setHTML(
+            //             `
+            //             <div>
+            //                 <div style="margin-bottom: 10px;">
+            //                     <div>緯度: ${lat.toFixed(6)}</div>
+            //                     <div>経度: ${lng.toFixed(6)}</div>
+            //                 </div>
+            //                 <form id="point-form" style="margin-top: 10px;">
+            //                     <input type="text" id="point-name" placeholder="名称を入力" style="width: 90%; padding: 5px; margin-bottom: 5px;">
+            //                     <button type="submit" style="width: 100%; padding: 5px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">保存</button>
+            //                 </form>
+            //             </div>
+            //         `
+            //         )
+            //         .addTo(mapInstance);
 
-                // Add form submit handler
-                const form = document.getElementById("point-form");
-                if (form) {
-                    form.addEventListener("submit", async (e) => {
-                        e.preventDefault();
-                        const nameInput = document.getElementById(
-                            "point-name"
-                        ) as HTMLInputElement;
-                        const name = nameInput.value;
-                        if (name && db) {
-                            try {
-                                const conn = await db.connect();
-                                await conn.query("LOAD spatial;");
+            //     // Add form submit handler
+            //     const form = document.getElementById("point-form");
+            //     if (form) {
+            //         form.addEventListener("submit", async (e) => {
+            //             e.preventDefault();
+            //             const nameInput = document.getElementById(
+            //                 "point-name"
+            //             ) as HTMLInputElement;
+            //             const name = nameInput.value;
+            //             if (name && db) {
+            //                 try {
+            //                     const conn = await db.connect();
+            //                     await conn.query("LOAD spatial;");
 
-                                // Create a point geometry from the clicked coordinates
-                                const pointGeom = `ST_POINT(${lng}, ${lat})`;
+            //                     // Create a point geometry from the clicked coordinates
+            //                     const pointGeom = `ST_POINT(${lng}, ${lat})`;
 
-                                // Insert the point into minato_wk table
-                                await conn.query(`
-                                    INSERT INTO minato_wk (geom, 名称)
-                                    VALUES (${pointGeom}, '${name}')
-                                `);
-                                await conn.query("CHECKPOINT");
-                                await conn.close();
-                                alert("ポイントを保存しました");
-                                newPopup.remove();
-                            } catch (err) {
-                                console.error("Error saving point:", err);
-                                alert("ポイントの保存に失敗しました");
-                            }
-                        }
-                    });
-                }
+            //                     // Insert the point into minato_wk table
+            //                     await conn.query(`
+            //                         INSERT INTO minato_wk (geom, 名称)
+            //                         VALUES (${pointGeom}, '${name}')
+            //                     `);
+            //                     await conn.query("CHECKPOINT");
+            //                     await conn.close();
+            //                     alert("ポイントを保存しました");
+            //                     newPopup.remove();
+            //                 } catch (err) {
+            //                     console.error("Error saving point:", err);
+            //                     alert("ポイントの保存に失敗しました");
+            //                 }
+            //             }
+            //         });
+            //     }
 
-                setPopup(newPopup);
-            });
+            //     setPopup(newPopup);
+            // });
         });
 
         setMap(mapInstance);
