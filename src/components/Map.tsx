@@ -330,7 +330,7 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
                 source: "points-source",
                 filter: ["==", ["geometry-type"], "Point"],
                 paint: {
-                    "circle-radius": 8,
+                    "circle-radius": 4,
                     "circle-color": ["get", "color"],
                     "circle-stroke-width": 2,
                     "circle-stroke-color": "#ffffff",
