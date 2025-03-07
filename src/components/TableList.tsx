@@ -20,6 +20,9 @@ interface TableListProps {
         selected: boolean
     ) => void;
     columnStates: { [key: string]: ColumnInfo[] };
+    setColumnStates: React.Dispatch<
+        React.SetStateAction<{ [key: string]: ColumnInfo[] }>
+    >;
 }
 
 interface ColumnInfo {
@@ -39,6 +42,7 @@ export const TableList: React.FC<TableListProps> = ({
     onShowTableData,
     onColumnSelect,
     columnStates,
+    setColumnStates,
 }) => {
     const [expandedTable, setExpandedTable] = useState<string | null>(null);
     const [editingAlias, setEditingAlias] = useState<{
@@ -57,6 +61,27 @@ export const TableList: React.FC<TableListProps> = ({
             setExpandedTable(null);
         } else {
             setExpandedTable(tableName);
+            if (!columnStates[tableName]) {
+                const conn = await db.connect();
+                const result = await conn.query(`DESCRIBE ${tableName};`);
+                const columnNames: ColumnInfo[] = [];
+
+                for (let i = 0; i < result.numRows; i++) {
+                    const name = result.getChildAt(0)?.get(i) as string;
+                    columnNames.push({
+                        name,
+                        selected: false,
+                        alias: "",
+                    });
+                }
+
+                setColumnStates((prev) => ({
+                    ...prev,
+                    [tableName]: columnNames,
+                }));
+
+                await conn.close();
+            }
         }
     };
 

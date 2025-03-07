@@ -396,6 +396,7 @@ function App() {
                     onTableConditionChange={handleTableConditionChange}
                     onShowTableData={handleShowTableData}
                     columnStates={columnStates}
+                    setColumnStates={setColumnStates}
                     onColumnSelect={(
                         tableName: string,
                         columnName: string,
