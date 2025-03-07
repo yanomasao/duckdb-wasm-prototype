@@ -15,38 +15,44 @@ interface Point {
     isQueryResult?: boolean;
     color?: string;
     tableName: string;
+    columnValues?: Record<string, string | number>;
+}
+
+interface ColumnInfo {
+    name: string;
+    selected: boolean;
+    alias: string;
 }
 
 function App() {
     const { db, error: dbError } = useDuckDB();
+    const [file, setFile] = useState<File | null>(null);
     const [queryResult, setQueryResult] = useState<Table | null>(null);
     const [queryError, setQueryError] = useState<string | null>(null);
-    const [file, setFile] = useState<File | null>(null);
-    const [points, setPoints] = useState<Point[]>([]);
     const [tables, setTables] = useState<string[]>([]);
     const [selectedTables, setSelectedTables] = useState<string[]>([]);
-    const [columnAliases, setColumnAliases] = useState<{
-        [key: string]: { [key: string]: string };
-    }>({});
-
-    // テーブルごとの条件を管理するstate
-    const [tableConditions, setTableConditions] = useState<{
-        [key: string]: string;
-    }>({});
-
-    // テーブルごとの色を管理するstate
+    const [points, setPoints] = useState<Point[]>([]);
     const [tableColors, setTableColors] = useState<{ [key: string]: string }>(
         {}
     );
+    const [columnAliases, setColumnAliases] = useState<{
+        [key: string]: { [key: string]: string };
+    }>({});
+    const [tableConditions, setTableConditions] = useState<{
+        [key: string]: string;
+    }>({});
+    const [columnStates, setColumnStates] = useState<{
+        [key: string]: ColumnInfo[];
+    }>({});
 
     // ランダムな色を生成する関数
     const generateRandomColor = () => {
-        // HSLカラーモデルを使用
-        // H: 0-360 (色相)
-        // S: 70% (彩度)
-        // L: 50% (明度)
-        const hue = Math.floor(Math.random() * 360);
-        return `hsl(${hue}, 70%, 50%)`;
+        const letters = "0123456789ABCDEF";
+        let color = "#";
+        for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
     };
 
     // Fetch tables
@@ -79,32 +85,74 @@ function App() {
                 const allPoints: Point[] = [];
 
                 for (const tableName of selectedTables) {
-                    const columns = columnAliases[tableName] || {};
-                    const selectColumns = Object.entries(columns)
-                        .map(([name, alias]) => `${name} as ${alias}`)
-                        .join(", ");
+                    const tableColumns = columnStates[tableName] || [];
+                    const selectedColumnNames = tableColumns
+                        .filter((col) => col.selected)
+                        .map((col) => col.name);
+
+                    // Build SELECT clause with proper quoting for special characters
+                    const selectClause = [
+                        "ST_AsGeoJSON(geom) as geom",
+                        ...selectedColumnNames.map((col) => {
+                            // Add quotes only if the column name contains special characters or Japanese characters
+                            const needsQuotes =
+                                /[^a-zA-Z0-9_]/.test(col) ||
+                                /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(
+                                    col
+                                );
+                            return needsQuotes ? `"${col}"` : col;
+                        }),
+                    ].join(", ");
 
                     const condition = tableConditions[tableName] || "";
                     const whereClause = condition ? `WHERE ${condition}` : "";
 
                     const query = `
-                        SELECT 
-                            ST_AsGeoJSON(geom) as geom,
-                            ${selectColumns || "name"}
+                        SELECT ${selectClause}
                         FROM ${tableName}
                         ${whereClause}
                     `;
 
+                    console.log("Executing query:", query); // デバッグ用
+
                     const result = await conn.query(query);
+                    const schema = result.schema;
 
                     for (let i = 0; i < result.numRows; i++) {
+                        const columnValues: Record<string, string | number> =
+                            {};
+                        // Start from index 1 because 0 is geom
+                        for (let j = 1; j < schema.fields.length; j++) {
+                            const columnName = schema.fields[j].name;
+                            const value = result.getChildAt(j)?.get(i);
+                            if (value !== null && value !== undefined) {
+                                // console.log(`Column ${columnName}:`, {
+                                //     value,
+                                //     type: typeof value,
+                                //     constructor: value?.constructor?.name,
+                                // });
+                                // Convert value to string if it's not a number
+                                if (typeof value === "number") {
+                                    columnValues[columnName] = value;
+                                } else if (
+                                    typeof value === "object" &&
+                                    value.toString
+                                ) {
+                                    columnValues[columnName] = value.toString();
+                                } else {
+                                    columnValues[columnName] = String(value);
+                                }
+                            }
+                        }
+
                         allPoints.push({
                             geom: result.getChildAt(0)?.get(i) as string,
-                            name: result.getChildAt(1)?.get(i) as string,
+                            name: tableName, // テーブル名をname属性として使用
                             isQueryResult: true,
                             color:
                                 tableColors[tableName] || generateRandomColor(),
                             tableName: tableName,
+                            columnValues: columnValues,
                         });
                     }
                 }
@@ -116,13 +164,17 @@ function App() {
         }
 
         fetchSelectedTablesData();
-    }, [db, selectedTables, columnAliases, tableColors, tableConditions]);
+    }, [db, selectedTables, columnStates, tableColors, tableConditions]);
 
     const handleTableSelect = (tableName: string) => {
         setSelectedTables((prev) => {
             if (prev.includes(tableName)) {
                 return prev.filter((t) => t !== tableName);
             } else {
+                // Initialize columnStates for the new table
+                if (!columnStates[tableName]) {
+                    initializeTableColumns(tableName);
+                }
                 // 新しいテーブルが選択されたときに色を生成
                 setTableColors((prev) => ({
                     ...prev,
@@ -131,6 +183,35 @@ function App() {
                 return [...prev, tableName];
             }
         });
+    };
+
+    // Add this new function to initialize table columns
+    const initializeTableColumns = async (tableName: string) => {
+        if (!db) return;
+
+        try {
+            const conn = await db.connect();
+            const result = await conn.query(`DESCRIBE ${tableName};`);
+            const columnNames: ColumnInfo[] = [];
+
+            for (let i = 0; i < result.numRows; i++) {
+                const name = result.getChildAt(0)?.get(i) as string;
+                columnNames.push({
+                    name,
+                    selected: false,
+                    alias: "",
+                });
+            }
+
+            setColumnStates((prev) => ({
+                ...prev,
+                [tableName]: columnNames,
+            }));
+
+            await conn.close();
+        } catch (err) {
+            console.error("Error fetching columns:", err);
+        }
     };
 
     const executeQuery = async (query: string) => {
@@ -314,6 +395,21 @@ function App() {
                     onTableDelete={handleTableDelete}
                     onTableConditionChange={handleTableConditionChange}
                     onShowTableData={handleShowTableData}
+                    columnStates={columnStates}
+                    onColumnSelect={(
+                        tableName: string,
+                        columnName: string,
+                        selected: boolean
+                    ) => {
+                        setColumnStates((prev) => ({
+                            ...prev,
+                            [tableName]: prev[tableName].map((col) =>
+                                col.name === columnName
+                                    ? { ...col, selected }
+                                    : col
+                            ),
+                        }));
+                    }}
                 />
             </div>
             <Map points={points} db={db} />

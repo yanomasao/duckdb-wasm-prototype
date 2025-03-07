@@ -11,11 +11,13 @@ interface Point {
     isQueryResult?: boolean;
     color?: string;
     tableName?: string;
+    columnValues?: Record<string, string | number>;
 }
 
 interface MapProps {
     points?: Point[];
     db: duckdb.AsyncDuckDB | null;
+    selectedColumns?: string[];
 }
 
 interface GeoJSONFeature {
@@ -27,12 +29,13 @@ interface GeoJSONFeature {
     properties: {
         name: string;
         isQueryResult: boolean;
-        color?: string;
+        color: string;
         tableName?: string;
+        columnValues?: Record<string, any>;
     };
 }
 
-const Map: React.FC<MapProps> = ({ points = [], db }) => {
+const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns }) => {
     const [popup, setPopup] = useState<maplibregl.Popup | null>(null);
     const [map, setMap] = useState<maplibregl.Map | null>(null);
 
@@ -296,25 +299,29 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
             .map((point) => {
                 try {
                     const geometry = JSON.parse(point.geom);
-                    console.log("Parsed geometry:", geometry); // デバッグ用
+
+                    // Ensure columnValues is properly handled
+                    const properties = {
+                        name: point.name,
+                        isQueryResult: point.isQueryResult || false,
+                        color: point.color || "#FF0000",
+                        tableName: point.tableName,
+                        columnValues: point.columnValues
+                            ? { ...point.columnValues }
+                            : {},
+                    };
+
                     return {
                         type: "Feature",
                         geometry,
-                        properties: {
-                            name: point.name,
-                            isQueryResult: point.isQueryResult || false,
-                            color: point.color || "#FF0000",
-                            tableName: point.tableName,
-                        },
-                    };
+                        properties,
+                    } as GeoJSONFeature;
                 } catch (err) {
                     console.error("Error parsing GeoJSON:", point.geom, err);
                     return null;
                 }
             })
             .filter((feature): feature is GeoJSONFeature => feature !== null);
-
-        console.log("Features to display:", features); // デバッグ用
 
         // Add source and layers only if there are features
         if (features.length > 0) {
@@ -381,7 +388,11 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
         }
 
         // Add click handler for points, lines and polygons
-        const clickHandler = (e: any) => {
+        const clickHandler = (
+            e: maplibregl.MapMouseEvent & {
+                features?: maplibregl.MapGeoJSONFeature[];
+            }
+        ) => {
             if (e.features && e.features[0]) {
                 const feature = e.features[0];
                 const geometry = feature.geometry;
@@ -399,6 +410,7 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
                           ]);
                 const name = feature.properties?.name as string;
                 const tableName = feature.properties?.tableName;
+                const columnValues = feature.properties?.columnValues || {};
 
                 // Remove existing popup if any
                 if (popup) {
@@ -415,21 +427,23 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
                     .setHTML(
                         `
                         <div>
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <strong>${name}</strong>
-                            </div>
                             <div style="font-size: 12px; color: #666; margin-top: 4px;">
-                                ${
-                                    tableName
-                                        ? `<div style="margin-bottom: 4px;"><strong>テーブル:</strong> ${tableName}</div>`
-                                        : ""
-                                }
+                                ${Object.entries(
+                                    typeof columnValues === "string"
+                                        ? JSON.parse(columnValues)
+                                        : columnValues
+                                )
+                                    .map(([key, value]) => {
+                                        return `<div style="margin-top: 4px;">${key}: <strong>${value}</strong></div>`;
+                                    })
+                                    .join("")}
                                 <div>緯度: ${coordinates[1].toFixed(6)}</div>
                                 <div>経度: ${coordinates[0].toFixed(6)}</div>
-                                <div style="margin-top: 4px; word-break: break-all;">
-                                    <strong>geom:</strong><br>
-                                    ${JSON.stringify(geometry, null, 2)}
-                                </div>
+                                ${
+                                    tableName
+                                        ? `<div style="margin-bottom: 4px;">テーブル: <strong>${tableName}</strong></div>`
+                                        : ""
+                                }
                             </div>
                         </div>
                     `

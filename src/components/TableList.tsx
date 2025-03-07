@@ -14,6 +14,12 @@ interface TableListProps {
     onTableDelete: (tableName: string) => void;
     onTableConditionChange: (tableName: string, condition: string) => void;
     onShowTableData: (tableName: string) => void;
+    onColumnSelect: (
+        tableName: string,
+        columnName: string,
+        selected: boolean
+    ) => void;
+    columnStates: { [key: string]: ColumnInfo[] };
 }
 
 interface ColumnInfo {
@@ -31,9 +37,10 @@ export const TableList: React.FC<TableListProps> = ({
     onTableDelete,
     onTableConditionChange,
     onShowTableData,
+    onColumnSelect,
+    columnStates,
 }) => {
     const [expandedTable, setExpandedTable] = useState<string | null>(null);
-    const [columns, setColumns] = useState<{ [key: string]: ColumnInfo[] }>({});
     const [editingAlias, setEditingAlias] = useState<{
         table: string;
         column: string;
@@ -46,42 +53,18 @@ export const TableList: React.FC<TableListProps> = ({
     const handleTableClick = async (tableName: string) => {
         if (!db) return;
 
-        try {
-            const conn = await db.connect();
-            const result = await conn.query(`DESCRIBE ${tableName};`);
-            const columnNames: ColumnInfo[] = [];
-            for (let i = 0; i < result.numRows; i++) {
-                columnNames.push({
-                    name: result.getChildAt(0)?.get(i) as string,
-                    selected: false,
-                    alias: "",
-                });
-            }
-            setColumns((prev) => ({
-                ...prev,
-                [tableName]: columnNames,
-            }));
-            await conn.close();
-
-            if (expandedTable === tableName) {
-                setExpandedTable(null);
-            } else {
-                setExpandedTable(tableName);
-            }
-        } catch (err) {
-            console.error("Error fetching columns:", err);
+        if (expandedTable === tableName) {
+            setExpandedTable(null);
+        } else {
+            setExpandedTable(tableName);
         }
     };
 
     const handleColumnSelect = (tableName: string, columnName: string) => {
-        setColumns((prev) => ({
-            ...prev,
-            [tableName]: prev[tableName].map((col) =>
-                col.name === columnName
-                    ? { ...col, selected: !col.selected }
-                    : col
-            ),
-        }));
+        const currentSelected =
+            columnStates[tableName]?.find((col) => col.name === columnName)
+                ?.selected || false;
+        onColumnSelect(tableName, columnName, !currentSelected);
     };
 
     const handleAliasEdit = (
@@ -95,14 +78,6 @@ export const TableList: React.FC<TableListProps> = ({
 
     const handleAliasSave = () => {
         if (editingAlias) {
-            setColumns((prev) => ({
-                ...prev,
-                [editingAlias.table]: prev[editingAlias.table].map((col) =>
-                    col.name === editingAlias.column
-                        ? { ...col, alias: aliasText }
-                        : col
-                ),
-            }));
             onColumnAliasChange(
                 editingAlias.table,
                 editingAlias.column,
@@ -191,7 +166,7 @@ export const TableList: React.FC<TableListProps> = ({
                         {expandedTable === table && (
                             <>
                                 <div className='column-list'>
-                                    {columns[table]?.map((column) => (
+                                    {columnStates[table]?.map((column) => (
                                         <div
                                             key={column.name}
                                             className='column-item'
