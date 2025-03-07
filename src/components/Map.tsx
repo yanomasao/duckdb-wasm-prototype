@@ -420,7 +420,7 @@ const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns }) => {
                 // Create new popup
                 const newPopup = new maplibregl.Popup({
                     closeButton: true,
-                    closeOnClick: false,
+                    closeOnClick: true,
                     className: "custom-popup",
                 })
                     .setLngLat(coordinates)
