@@ -14,6 +14,7 @@ interface Point {
     name: string;
     isQueryResult?: boolean;
     color?: string;
+    tableName: string;
 }
 
 function App() {
@@ -103,6 +104,7 @@ function App() {
                             isQueryResult: true,
                             color:
                                 tableColors[tableName] || generateRandomColor(),
+                            tableName: tableName,
                         });
                     }
                 }

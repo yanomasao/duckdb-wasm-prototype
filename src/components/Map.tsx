@@ -10,6 +10,7 @@ interface Point {
     name: string;
     isQueryResult?: boolean;
     color?: string;
+    tableName?: string;
 }
 
 interface MapProps {
@@ -27,6 +28,7 @@ interface GeoJSONFeature {
         name: string;
         isQueryResult: boolean;
         color?: string;
+        tableName?: string;
     };
 }
 
@@ -302,6 +304,7 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
                             name: point.name,
                             isQueryResult: point.isQueryResult || false,
                             color: point.color || "#FF0000",
+                            tableName: point.tableName,
                         },
                     };
                 } catch (err) {
@@ -395,6 +398,7 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
                               number
                           ]);
                 const name = feature.properties?.name as string;
+                const tableName = feature.properties?.tableName;
 
                 // Remove existing popup if any
                 if (popup) {
@@ -402,13 +406,24 @@ const Map: React.FC<MapProps> = ({ points = [], db }) => {
                 }
 
                 // Create new popup
-                const newPopup = new maplibregl.Popup()
+                const newPopup = new maplibregl.Popup({
+                    closeButton: true,
+                    closeOnClick: false,
+                    className: "custom-popup",
+                })
                     .setLngLat(coordinates)
                     .setHTML(
                         `
                         <div>
-                            <strong>${name}</strong>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <strong>${name}</strong>
+                            </div>
                             <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                                ${
+                                    tableName
+                                        ? `<div style="margin-bottom: 4px;"><strong>テーブル:</strong> ${tableName}</div>`
+                                        : ""
+                                }
                                 <div>緯度: ${coordinates[1].toFixed(6)}</div>
                                 <div>経度: ${coordinates[0].toFixed(6)}</div>
                                 <div style="margin-top: 4px; word-break: break-all;">
