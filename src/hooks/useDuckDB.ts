@@ -1,8 +1,8 @@
 import * as duckdb from "@duckdb/duckdb-wasm";
-import eh_worker from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url';
-import mvp_worker from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url';
-import duckdb_wasm_eh from '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url';
-import duckdb_wasm from '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url';
+import eh_worker from "@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url";
+import mvp_worker from "@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url";
+import duckdb_wasm_eh from "@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url";
+import duckdb_wasm from "@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url";
 import { useEffect, useRef, useState } from "react";
 
 export function useDuckDB() {
@@ -33,7 +33,7 @@ export function useDuckDB() {
 
                 // OPFSにデータベースを配置
                 await db.open({
-                    path: "opfs://duckdb.db",
+                    path: "opfs://data.duckdb",
                     accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
                 });
                 console.log("Database opened successfully in OPFS.");
@@ -44,7 +44,10 @@ export function useDuckDB() {
                     await conn.query("INSTALL spatial;");
                     await conn.query("LOAD spatial;");
                 } catch (extensionError) {
-                    console.error("Error installing spatial extension:", extensionError);
+                    console.error(
+                        "Error installing spatial extension:",
+                        extensionError
+                    );
                     throw extensionError;
                 } finally {
                     await conn.close();
