@@ -92,15 +92,6 @@ export const TableList: React.FC<TableListProps> = ({
         onColumnSelect(tableName, columnName, !currentSelected);
     };
 
-    const handleAliasEdit = (
-        tableName: string,
-        columnName: string,
-        currentAlias: string
-    ) => {
-        setEditingAlias({ table: tableName, column: columnName });
-        setAliasText(currentAlias);
-    };
-
     const handleAliasSave = () => {
         if (editingAlias) {
             onColumnAliasChange(
@@ -296,23 +287,6 @@ export const TableList: React.FC<TableListProps> = ({
                                                                     }
                                                                 </span>
                                                             )}
-                                                            <button
-                                                                onClick={() =>
-                                                                    handleAliasEdit(
-                                                                        table,
-                                                                        column.name,
-                                                                        column.alias
-                                                                    )
-                                                                }
-                                                                style={{
-                                                                    fontSize:
-                                                                        "12px",
-                                                                    padding:
-                                                                        "2px 4px",
-                                                                }}
-                                                            >
-                                                                編集
-                                                            </button>
                                                         </div>
                                                     )}
                                                 </div>
