@@ -90,6 +90,8 @@ function App() {
                         .filter((col) => col.selected)
                         .map((col) => col.name);
 
+                    // "ST_AsGeoJSON(st_geomfromtext(tile)) as geom",
+
                     // Build SELECT clause with proper quoting for special characters
                     const selectClause = [
                         "ST_AsGeoJSON(geom) as geom",
@@ -245,8 +247,18 @@ function App() {
             const conn = await db.connect();
             await conn.query("LOAD spatial;");
 
-            const tableName = file.name.split(".")[0];
-            const query = `CREATE TABLE ${tableName} AS SELECT * FROM st_read('http://localhost:5173/tmp/${file.name}');`;
+            let tableName = file.name.split(".")[0].replace(/-/g, "_");
+            // 最初の文字が数字の場合、t_をプレフィックスとして追加
+            if (/^\d/.test(tableName)) {
+                tableName = `t_${tableName}`;
+            }
+
+            const isParquet = file.name.toLowerCase().endsWith(".parquet");
+
+            const query = isParquet
+                ? `CREATE TABLE ${tableName} AS SELECT * FROM 'http://localhost:5173/tmp/${file.name}'`
+                : `CREATE TABLE ${tableName} AS SELECT * FROM st_read('http://localhost:5173/tmp/${file.name}')`;
+
             await conn.query(query);
             console.log("Table created:", tableName);
             await conn.close();
