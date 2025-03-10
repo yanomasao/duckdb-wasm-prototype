@@ -44,6 +44,7 @@ function App() {
     const [columnStates, setColumnStates] = useState<{
         [key: string]: ColumnInfo[];
     }>({});
+    const [isCreatingTable, setIsCreatingTable] = useState(false);
 
     // ランダムな色を生成する関数
     const generateRandomColor = () => {
@@ -243,6 +244,7 @@ function App() {
     const createTableFromFile = async () => {
         if (!db || !file) return;
 
+        setIsCreatingTable(true);
         try {
             const conn = await db.connect();
             await conn.query("LOAD spatial;");
@@ -270,6 +272,8 @@ function App() {
             setQueryError(
                 err instanceof Error ? err.message : "Unknown error occurred"
             );
+        } finally {
+            setIsCreatingTable(false);
         }
     };
 
@@ -389,8 +393,13 @@ function App() {
             </div>
             <div className='card'>
                 <input type='file' onChange={handleFileChange} />
-                <button onClick={createTableFromFile} disabled={!db || !file}>
-                    Create Table from File
+                <button
+                    onClick={createTableFromFile}
+                    disabled={!db || !file || isCreatingTable}
+                >
+                    {isCreatingTable
+                        ? "テーブル作成中..."
+                        : "Create Table from File"}
                 </button>
                 <DuckDbQuery
                     onExecute={executeQuery}
