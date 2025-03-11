@@ -262,7 +262,9 @@ function App() {
                 : `CREATE TABLE ${tableName} AS SELECT * FROM st_read('http://localhost:5173/tmp/${file.name}')`;
 
             await conn.query(query);
-            console.log("Table created:", tableName);
+            // テーブルの作成後にcheckpointを実行
+            await conn.query("CHECKPOINT;");
+            console.log("Table created and checkpoint executed:", tableName);
             await conn.close();
             setQueryError(null);
             // テーブルリストを更新
@@ -320,8 +322,10 @@ function App() {
         try {
             const conn = await db.connect();
             await conn.query(`DROP TABLE ${tableName};`);
+            // テーブルの削除後にcheckpointを実行
+            await conn.query("CHECKPOINT;");
             await conn.close();
-            console.log("Table deleted:", tableName);
+            console.log("Table deleted and checkpoint executed:", tableName);
 
             // テーブルリストを更新
             fetchTables();
