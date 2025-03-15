@@ -98,6 +98,11 @@
     justify-content: flex-end;
 }
 
+/* テーブル作成中のカーソルスタイル */
+.creating-table {
+    cursor: wait !important;
+}
+
 .table-list {
     margin-top: 20px;
     padding: 15px;

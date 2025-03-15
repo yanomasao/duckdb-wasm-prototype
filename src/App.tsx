@@ -245,6 +245,8 @@ function App() {
         if (!db || !file) return;
 
         setIsCreatingTable(true);
+        // テーブル作成中のクラスを追加
+        document.body.classList.add("creating-table");
         try {
             const conn = await db.connect();
             await conn.query("LOAD spatial;");
@@ -276,6 +278,8 @@ function App() {
             );
         } finally {
             setIsCreatingTable(false);
+            // テーブル作成中のクラスを削除
+            document.body.classList.remove("creating-table");
         }
     };
 
