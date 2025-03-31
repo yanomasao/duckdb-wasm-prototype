@@ -443,7 +443,9 @@ function App() {
                     }}
                 />
             </div>
-            <Map2 />
+            <div style={{ marginBottom: '20px' }}>
+                <Map2 />
+            </div>
             <Map points={points} db={db} />
             <p className='read-the-docs'>
                 Click on the Vite and React logos to learn more
