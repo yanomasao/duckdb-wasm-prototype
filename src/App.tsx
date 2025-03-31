@@ -5,7 +5,6 @@ import reactLogo from "./assets/react.svg";
 import { DuckDbQuery } from "./components/DuckDbQuery";
 import { DuckDbResult } from "./components/DuckDbResult";
 import Map from "./components/Map";
-import Map2 from "./components/Map2";
 import { TableList } from "./components/TableList";
 import { useDuckDB } from "./hooks/useDuckDB";
 import viteLogo from "/vite.svg";
@@ -443,7 +442,6 @@ function App() {
                     }}
                 />
             </div>
-            <Map2 />
             <Map points={points} db={db} />
             <p className='read-the-docs'>
                 Click on the Vite and React logos to learn more
