@@ -181,6 +181,43 @@ export const TableList: React.FC<TableListProps> = ({
                         </div>
                         {expandedTable === table && (
                             <>
+                                <div
+                                    className='condition-input'
+                                    style={{
+                                        marginTop: "8px",
+                                        padding: "8px",
+                                        backgroundColor: "#f5f5f5",
+                                        borderRadius: "4px",
+                                    }}
+                                >
+                                    <label
+                                        style={{
+                                            display: "block",
+                                            fontSize: "12px",
+                                            marginBottom: "4px",
+                                        }}
+                                    >
+                                        条件 (WHERE句):
+                                    </label>
+                                    <input
+                                        type='text'
+                                        value={tableConditions[table] || ""}
+                                        onChange={(e) =>
+                                            handleConditionChange(
+                                                table,
+                                                e.target.value
+                                            )
+                                        }
+                                        placeholder='例: name LIKE "%駅%"'
+                                        style={{
+                                            width: "100%",
+                                            fontSize: "12px",
+                                            padding: "4px",
+                                            border: "1px solid #ddd",
+                                            borderRadius: "3px",
+                                        }}
+                                    />
+                                </div>
                                 <div className='column-list'>
                                     {columnStates[table]?.map((column) => (
                                         <div
@@ -293,43 +330,6 @@ export const TableList: React.FC<TableListProps> = ({
                                             </label>
                                         </div>
                                     ))}
-                                </div>
-                                <div
-                                    className='condition-input'
-                                    style={{
-                                        marginTop: "8px",
-                                        padding: "8px",
-                                        backgroundColor: "#f5f5f5",
-                                        borderRadius: "4px",
-                                    }}
-                                >
-                                    <label
-                                        style={{
-                                            display: "block",
-                                            fontSize: "12px",
-                                            marginBottom: "4px",
-                                        }}
-                                    >
-                                        条件 (WHERE句):
-                                    </label>
-                                    <input
-                                        type='text'
-                                        value={tableConditions[table] || ""}
-                                        onChange={(e) =>
-                                            handleConditionChange(
-                                                table,
-                                                e.target.value
-                                            )
-                                        }
-                                        placeholder='例: name LIKE "%駅%"'
-                                        style={{
-                                            width: "100%",
-                                            fontSize: "12px",
-                                            padding: "4px",
-                                            border: "1px solid #ddd",
-                                            borderRadius: "3px",
-                                        }}
-                                    />
                                 </div>
                             </>
                         )}
