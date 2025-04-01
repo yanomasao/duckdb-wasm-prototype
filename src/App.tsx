@@ -9,6 +9,7 @@ import Map2 from "./components/Map2";
 import { TableList } from "./components/TableList";
 import Tile from "./components/Tile";
 import { useDuckDB } from "./hooks/useDuckDB";
+import { createTileGeoJSON } from "./utils/tileUtils";
 import viteLogo from "/vite.svg";
 
 interface Point {
@@ -42,6 +43,9 @@ function App() {
     }>({});
     const [tableConditions, setTableConditions] = useState<{
         [key: string]: string;
+    }>({});
+    const [limitToTileStates, setLimitToTileStates] = useState<{
+        [key: string]: boolean;
     }>({});
     const [columnStates, setColumnStates] = useState<{
         [key: string]: ColumnInfo[];
@@ -94,13 +98,10 @@ function App() {
                         .filter((col) => col.selected)
                         .map((col) => col.name);
 
-                    // "ST_AsGeoJSON(st_geomfromtext(tile)) as geom",
-
                     // Build SELECT clause with proper quoting for special characters
                     const selectClause = [
                         "ST_AsGeoJSON(geom) as geom",
                         ...selectedColumnNames.map((col) => {
-                            // Add quotes only if the column name contains special characters or Japanese characters
                             const needsQuotes =
                                 /[^a-zA-Z0-9_]/.test(col) ||
                                 /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(
@@ -111,7 +112,19 @@ function App() {
                     ].join(", ");
 
                     const condition = tableConditions[tableName] || "";
-                    const whereClause = condition ? `WHERE ${condition}` : "";
+                    const limitToTile = limitToTileStates[tableName] || false;
+
+                    // タイル内限定が有効な場合、タイルのGeoJSONを作成してST_Intersectsで絞り込む
+                    let whereClause = condition;
+                    if (limitToTile) {
+                        const tileGeoJSON = createTileGeoJSON(mapParams.zoom, mapParams.lat, mapParams.lng);
+                        const tileGeom = `ST_GeomFromGeoJSON('${JSON.stringify(tileGeoJSON.geometry)}')`;
+                        whereClause = whereClause
+                            ? `${whereClause} AND ST_Intersects(geom, ${tileGeom})`
+                            : `WHERE ST_Intersects(geom, ${tileGeom})`;
+                    } else if (condition) {
+                        whereClause = `WHERE ${condition}`;
+                    }
 
                     const query = `
                         SELECT ${selectClause}
@@ -125,19 +138,12 @@ function App() {
                     const schema = result.schema;
 
                     for (let i = 0; i < result.numRows; i++) {
-                        const columnValues: Record<string, string | number> =
-                            {};
+                        const columnValues: Record<string, string | number> = {};
                         // Start from index 1 because 0 is geom
                         for (let j = 1; j < schema.fields.length; j++) {
                             const columnName = schema.fields[j].name;
                             const value = result.getChildAt(j)?.get(i);
                             if (value !== null && value !== undefined) {
-                                // console.log(`Column ${columnName}:`, {
-                                //     value,
-                                //     type: typeof value,
-                                //     constructor: value?.constructor?.name,
-                                // });
-                                // Convert value to string if it's not a number
                                 if (typeof value === "number") {
                                     columnValues[columnName] = value;
                                 } else if (
@@ -153,10 +159,9 @@ function App() {
 
                         allPoints.push({
                             geom: result.getChildAt(0)?.get(i) as string,
-                            name: tableName, // テーブル名をname属性として使用
+                            name: tableName,
                             isQueryResult: true,
-                            color:
-                                tableColors[tableName] || generateRandomColor(),
+                            color: tableColors[tableName] || generateRandomColor(),
                             tableName: tableName,
                             columnValues: columnValues,
                         });
@@ -170,7 +175,7 @@ function App() {
         }
 
         fetchSelectedTablesData();
-    }, [db, selectedTables, columnStates, tableColors, tableConditions]);
+    }, [db, selectedTables, columnStates, tableColors, tableConditions, limitToTileStates, mapParams]);
 
     const handleTableSelect = (tableName: string) => {
         setSelectedTables((prev) => {
@@ -384,6 +389,13 @@ function App() {
         }
     };
 
+    const handleLimitToTileChange = (tableName: string, limitToTile: boolean) => {
+        setLimitToTileStates(prev => ({
+            ...prev,
+            [tableName]: limitToTile
+        }));
+    };
+
     if (dbError) {
         return <div>Error initializing DuckDB: {dbError.message}</div>;
     }
@@ -443,6 +455,8 @@ function App() {
                             ),
                         }));
                     }}
+                    onLimitToTileChange={handleLimitToTileChange}
+                    limitToTileStates={limitToTileStates}
                 />
             </div>
             <Tile onUpdate={(zoom, lat, lng) => setMapParams({ zoom, lat, lng })} />

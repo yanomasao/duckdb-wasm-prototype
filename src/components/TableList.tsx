@@ -23,6 +23,8 @@ interface TableListProps {
     setColumnStates: React.Dispatch<
         React.SetStateAction<{ [key: string]: ColumnInfo[] }>
     >;
+    onLimitToTileChange: (tableName: string, limitToTile: boolean) => void;
+    limitToTileStates: { [key: string]: boolean };
 }
 
 interface ColumnInfo {
@@ -43,6 +45,8 @@ export const TableList: React.FC<TableListProps> = ({
     onColumnSelect,
     columnStates,
     setColumnStates,
+    onLimitToTileChange,
+    limitToTileStates,
 }) => {
     const [expandedTable, setExpandedTable] = useState<string | null>(null);
     const [editingAlias, setEditingAlias] = useState<{
@@ -182,7 +186,6 @@ export const TableList: React.FC<TableListProps> = ({
                         {expandedTable === table && (
                             <>
                                 <div
-                                    className='condition-input'
                                     style={{
                                         marginTop: "8px",
                                         padding: "8px",
@@ -192,31 +195,54 @@ export const TableList: React.FC<TableListProps> = ({
                                 >
                                     <label
                                         style={{
-                                            display: "block",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "8px",
                                             fontSize: "12px",
-                                            marginBottom: "4px",
+                                            marginBottom: "8px",
                                         }}
                                     >
-                                        条件 (WHERE句):
+                                        <input
+                                            type="checkbox"
+                                            checked={limitToTileStates[table] || false}
+                                            onChange={(e) => onLimitToTileChange(table, e.target.checked)}
+                                        />
+                                        タイル内に限定
                                     </label>
-                                    <input
-                                        type='text'
-                                        value={tableConditions[table] || ""}
-                                        onChange={(e) =>
-                                            handleConditionChange(
-                                                table,
-                                                e.target.value
-                                            )
-                                        }
-                                        placeholder='例: name LIKE "%駅%"'
+                                    <div
+                                        className='condition-input'
                                         style={{
-                                            width: "100%",
-                                            fontSize: "12px",
-                                            padding: "4px",
-                                            border: "1px solid #ddd",
-                                            borderRadius: "3px",
+                                            marginTop: "8px",
                                         }}
-                                    />
+                                    >
+                                        <label
+                                            style={{
+                                                display: "block",
+                                                fontSize: "12px",
+                                                marginBottom: "4px",
+                                            }}
+                                        >
+                                            条件 (WHERE句):
+                                        </label>
+                                        <input
+                                            type='text'
+                                            value={tableConditions[table] || ""}
+                                            onChange={(e) =>
+                                                handleConditionChange(
+                                                    table,
+                                                    e.target.value
+                                                )
+                                            }
+                                            placeholder='例: name LIKE "%駅%"'
+                                            style={{
+                                                width: "100%",
+                                                fontSize: "12px",
+                                                padding: "4px",
+                                                border: "1px solid #ddd",
+                                                borderRadius: "3px",
+                                            }}
+                                        />
+                                    </div>
                                 </div>
                                 <div className='column-list'>
                                     {columnStates[table]?.map((column) => (
