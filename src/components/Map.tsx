@@ -43,9 +43,6 @@ const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns }) => {
             container: "map",
             zoom: 5,
             center: [138, 37],
-            minZoom: 5,
-            maxZoom: 18,
-            maxBounds: [122, 20, 154, 50],
             style: {
                 version: 8,
                 sources: {
