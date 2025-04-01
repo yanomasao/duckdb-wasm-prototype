@@ -392,7 +392,14 @@ const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, 
         });
     }, [map, points, popup]);
 
-    return <div id='map' style={{ height: "80vh" }}></div>;
+    return <div id='map' style={{ 
+        // height: "80vh"
+            width: '90%',
+            aspectRatio: '1/1',
+            maxWidth: '1800px',
+            margin: '0 auto',
+
+     }}></div>;
 };
 
 export default Map;
