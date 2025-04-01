@@ -17,6 +17,9 @@ interface MapProps {
     points?: Point[];
     db: duckdb.AsyncDuckDB | null;
     selectedColumns?: string[];
+    zoom: number;
+    lat: number;
+    lng: number;
 }
 
 interface GeoJSONFeature {
@@ -34,15 +37,15 @@ interface GeoJSONFeature {
     };
 }
 
-const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns }) => {
+const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, lng }) => {
     const [popup, setPopup] = useState<maplibregl.Popup | null>(null);
     const [map, setMap] = useState<maplibregl.Map | null>(null);
 
     useEffect(() => {
         const mapInstance = new maplibregl.Map({
             container: "map",
-            zoom: 5,
-            center: [138, 37],
+            zoom: zoom,
+            center: [lng, lat],
             style: {
                 version: 8,
                 sources: {
@@ -146,7 +149,7 @@ const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns }) => {
         return () => {
             mapInstance.remove();
         };
-    }, [db]);
+    }, [db, zoom, lat, lng]);
 
     // Add points to the map when they change
     useEffect(() => {

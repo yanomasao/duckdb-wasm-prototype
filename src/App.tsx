@@ -449,7 +449,7 @@ function App() {
             <div style={{ marginBottom: '20px' }}>
                 <Map2 zoom={mapParams.zoom} lat={mapParams.lat} lng={mapParams.lng} />
             </div>
-            <Map points={points} db={db} />
+            <Map points={points} db={db} zoom={mapParams.zoom} lat={mapParams.lat} lng={mapParams.lng} />
             <p className='read-the-docs'>
                 Click on the Vite and React logos to learn more
             </p>
