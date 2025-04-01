@@ -1,3 +1,5 @@
+import { Feature, Polygon } from 'geojson';
+
 /**
  * Calculate the bounding box coordinates for a given tile (zoom, x, y) in WGS84 (EPSG:4326)
  * Similar to PostGIS ST_TileEnvelope
@@ -30,4 +32,31 @@ export function getTileCoordinates(lng: number, lat: number, zoom: number): [num
     const x = Math.floor((lng + 180) / 360 * n);
     const y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n);
     return [x, y];
-} 
+}
+
+/**
+ * 指定された座標のタイルのGeoJSONを作成
+ * @param zoom ズームレベル
+ * @param lat 緯度
+ * @param lng 経度
+ * @returns GeoJSON Feature<Polygon>
+ */
+export const createTileGeoJSON = (zoom: number, lat: number, lng: number): Feature<Polygon> => {
+    const [tileX, tileY] = getTileCoordinates(lng, lat, zoom);
+    const [west, south, east, north] = getTileEnvelope(zoom, tileX, tileY);
+
+    return {
+        type: "Feature",
+        properties: {},
+        geometry: {
+            type: "Polygon",
+            coordinates: [[
+                [west, south],  // 左下
+                [east, south],  // 右下
+                [east, north],  // 右上
+                [west, north],  // 左上
+                [west, south]   // 左下（閉じる）
+            ]]
+        }
+    };
+}; 

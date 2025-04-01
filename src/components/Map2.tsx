@@ -1,8 +1,7 @@
-import { Feature, Polygon } from 'geojson';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
-import { getTileCoordinates, getTileEnvelope } from '../utils/tileUtils';
+import { createTileGeoJSON } from '../utils/tileUtils';
 
 interface Map2Props {
     zoom: number;
@@ -17,29 +16,9 @@ const Map2: React.FC<Map2Props> = ({ zoom, lat, lng }) => {
     useEffect(() => {
         if (map.current || !mapContainer.current) return;
 
-        // 中心座標からタイル座標を計算
-        const [tileX, tileY] = getTileCoordinates(lng, lat, zoom);
-        console.log('Tile coordinates:', tileX, tileY);
-
-        // タイルの境界ボックスを計算
-        const [west, south, east, north] = getTileEnvelope(zoom, tileX, tileY);
-        console.log('Tile bounds:', { west, south, east, north });
-
-        // 境界ボックスからGeoJSONを作成
-        const tileGeoJSON: Feature<Polygon> = {
-            type: "Feature",
-            properties: {},
-            geometry: {
-                type: "Polygon",
-                coordinates: [[
-                    [west, south],  // 左下
-                    [east, south],  // 右下
-                    [east, north],  // 右上
-                    [west, north],  // 左上
-                    [west, south]   // 左下（閉じる）
-                ]]
-            }
-        };
+        // タイルのGeoJSONを作成
+        const tileGeoJSON = createTileGeoJSON(zoom, lat, lng);
+        console.log('Tile GeoJSON:', tileGeoJSON);
 
         map.current = new maplibregl.Map({
             container: mapContainer.current,
