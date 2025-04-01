@@ -5,7 +5,6 @@ import reactLogo from "./assets/react.svg";
 import { DuckDbQuery } from "./components/DuckDbQuery";
 import { DuckDbResult } from "./components/DuckDbResult";
 import Map from "./components/Map";
-import Map2 from "./components/Map2";
 import { TableList } from "./components/TableList";
 import Tile from "./components/Tile";
 import { useDuckDB } from "./hooks/useDuckDB";
@@ -461,9 +460,6 @@ function App() {
                 />
             </div>
             <Tile onUpdate={(zoom, lat, lng) => setMapParams({ zoom, lat, lng })} />
-            <div style={{ marginBottom: '20px' }}>
-                <Map2 zoom={mapParams.zoom} lat={mapParams.lat} lng={mapParams.lng} />
-            </div>
             <Map points={points} db={db} zoom={mapParams.zoom} lat={mapParams.lat} lng={mapParams.lng} />
             <p className='read-the-docs'>
                 Click on the Vite and React logos to learn more
