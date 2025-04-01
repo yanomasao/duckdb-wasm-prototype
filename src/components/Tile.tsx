@@ -36,7 +36,7 @@ const Tile: React.FC<TileProps> = ({ onUpdate }) => {
                         id="lat"
                         value={lat}
                         onChange={(e) => setLat(Number(e.target.value))}
-                        step="0.0001"
+                        step="0.1"
                         style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
                     />
                 </div>
@@ -47,7 +47,7 @@ const Tile: React.FC<TileProps> = ({ onUpdate }) => {
                         id="lng"
                         value={lng}
                         onChange={(e) => setLng(Number(e.target.value))}
-                        step="0.0001"
+                        step="0.1"
                         style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
                     />
                 </div>
