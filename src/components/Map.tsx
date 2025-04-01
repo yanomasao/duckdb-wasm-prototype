@@ -3,6 +3,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl-opacity/dist/maplibre-gl-opacity.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 import React, { useEffect, useState } from "react";
+import { createTileGeoJSON } from "../utils/tileUtils";
 
 interface Point {
     geom: string;
@@ -42,6 +43,10 @@ const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, 
     const [map, setMap] = useState<maplibregl.Map | null>(null);
 
     useEffect(() => {
+        // タイルのGeoJSONを作成
+        const tileGeoJSON = createTileGeoJSON(zoom, lat, lng);
+        console.log('Tile GeoJSON:', tileGeoJSON);
+
         const mapInstance = new maplibregl.Map({
             container: "map",
             zoom: zoom,
@@ -59,12 +64,25 @@ const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, 
                         attribution:
                             '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                     },
+                    "static-tile": {
+                        type: "geojson",
+                        data: tileGeoJSON
+                    }
                 },
                 layers: [
                     {
                         id: "osm-layer",
                         source: "osm",
                         type: "raster",
+                    },
+                    {
+                        id: "tile-layer",
+                        type: "fill",
+                        source: "static-tile",
+                        paint: {
+                            "fill-color": "#00aaff",
+                            "fill-opacity": 0.5
+                        }
                     },
                     {
                         id: "empty-layer",
