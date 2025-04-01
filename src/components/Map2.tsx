@@ -1,22 +1,46 @@
 import { Feature, Polygon } from 'geojson';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getTileCoordinates, getTileEnvelope } from '../utils/tileUtils';
+import Tile from './Tile';
 
-const Map: React.FC = () => {
+interface Map2Props {
+    initialZoom?: number;
+    initialLat?: number;
+    initialLng?: number;
+}
+
+const Map2: React.FC<Map2Props> = ({ 
+    initialZoom = 10,
+    initialLat = 35.0,
+    initialLng = 138.9
+}) => {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<maplibregl.Map | null>(null);
+    const [zoom, setZoom] = useState(initialZoom);
+    const [lat, setLat] = useState(initialLat);
+    const [lng, setLng] = useState(initialLng);
+
+    const updateMap = (newZoom: number, newLat: number, newLng: number) => {
+        setZoom(newZoom);
+        setLat(newLat);
+        setLng(newLng);
+
+        if (map.current) {
+            map.current.flyTo({
+                center: [newLng, newLat],
+                zoom: newZoom,
+                duration: 1000
+            });
+        }
+    };
 
     useEffect(() => {
         if (map.current || !mapContainer.current) return;
 
-        const zoom = 10;
-        const centerLng = 138.9;
-        const centerLat = 35.0;
-
         // 中心座標からタイル座標を計算
-        const [tileX, tileY] = getTileCoordinates(centerLng, centerLat, zoom);
+        const [tileX, tileY] = getTileCoordinates(lng, lat, zoom);
         console.log('Tile coordinates:', tileX, tileY);
 
         // タイルの境界ボックスを計算
@@ -74,7 +98,7 @@ const Map: React.FC = () => {
                     }
                 ],
             },
-            center: [centerLng, centerLat],
+            center: [lng, lat],
             zoom: zoom,
         });
 
@@ -82,22 +106,22 @@ const Map: React.FC = () => {
             map.current?.remove();
             map.current = null;
         };
-    }, []);
+    }, [zoom, lng, lat]);
 
     return (
-        <div
-            ref={mapContainer}
-            style={{
-                width: '100%',
-                height: '100vh',
-                // position: 'fixed',
-                // top: 0,
-                // left: 0,
-                // right: 0,
-                // bottom: 0,
-            }}
-        />
+        <>
+            <Tile onUpdate={updateMap} />
+            <div
+                ref={mapContainer}
+                style={{
+                    width: '90%',
+                    aspectRatio: '1/1',
+                    maxWidth: '1800px',
+                    margin: '0 auto',
+                }}
+            />
+        </>
     );
 };
 
-export default Map;
+export default Map2;
