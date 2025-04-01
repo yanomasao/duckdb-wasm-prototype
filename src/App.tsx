@@ -115,13 +115,14 @@ function App() {
                     const limitToTile = limitToTileStates[tableName] || false;
 
                     // タイル内限定が有効な場合、タイルのGeoJSONを作成してST_Intersectsで絞り込む
-                    let whereClause = condition;
+                    let whereClause = "";
                     if (limitToTile) {
                         const tileGeoJSON = createTileGeoJSON(mapParams.zoom, mapParams.lat, mapParams.lng);
                         const tileGeom = `ST_GeomFromGeoJSON('${JSON.stringify(tileGeoJSON.geometry)}')`;
-                        whereClause = whereClause
-                            ? `${whereClause} AND ST_Intersects(geom, ${tileGeom})`
-                            : `WHERE ST_Intersects(geom, ${tileGeom})`;
+                        whereClause = `WHERE ST_Intersects(geom, ${tileGeom})`;
+                        if (condition) {
+                            whereClause += ` AND ${condition}`;
+                        }
                     } else if (condition) {
                         whereClause = `WHERE ${condition}`;
                     }
