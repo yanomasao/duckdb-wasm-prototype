@@ -6,8 +6,8 @@ interface TileProps {
 
 const Tile: React.FC<TileProps> = ({ onUpdate }) => {
     const [zoom, setZoom] = useState<number>(10);
-    const [lat, setLat] = useState<number>(35.0);
-    const [lng, setLng] = useState<number>(138.9);
+    const [lat, setLat] = useState<number>(35.7);
+    const [lng, setLng] = useState<number>(139.7);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();

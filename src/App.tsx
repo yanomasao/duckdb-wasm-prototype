@@ -50,7 +50,7 @@ function App() {
         [key: string]: ColumnInfo[];
     }>({});
     const [isCreatingTable, setIsCreatingTable] = useState(false);
-    const [mapParams, setMapParams] = useState({ zoom: 10, lat: 35.0, lng: 138.9 });
+    const [mapParams, setMapParams] = useState({ zoom: 10, lat: 35.7, lng: 139.7 });
 
     // ランダムな色を生成する関数
     const generateRandomColor = () => {
