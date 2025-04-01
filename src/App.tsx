@@ -7,6 +7,7 @@ import { DuckDbResult } from "./components/DuckDbResult";
 import Map from "./components/Map";
 import Map2 from "./components/Map2";
 import { TableList } from "./components/TableList";
+import Tile from "./components/Tile";
 import { useDuckDB } from "./hooks/useDuckDB";
 import viteLogo from "/vite.svg";
 
@@ -46,6 +47,7 @@ function App() {
         [key: string]: ColumnInfo[];
     }>({});
     const [isCreatingTable, setIsCreatingTable] = useState(false);
+    const [mapParams, setMapParams] = useState({ zoom: 10, lat: 35.0, lng: 138.9 });
 
     // ランダムな色を生成する関数
     const generateRandomColor = () => {
@@ -443,8 +445,9 @@ function App() {
                     }}
                 />
             </div>
+            <Tile onUpdate={(zoom, lat, lng) => setMapParams({ zoom, lat, lng })} />
             <div style={{ marginBottom: '20px' }}>
-                <Map2 />
+                <Map2 zoom={mapParams.zoom} lat={mapParams.lat} lng={mapParams.lng} />
             </div>
             <Map points={points} db={db} />
             <p className='read-the-docs'>

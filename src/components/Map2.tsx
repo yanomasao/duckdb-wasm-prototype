@@ -1,40 +1,18 @@
 import { Feature, Polygon } from 'geojson';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { getTileCoordinates, getTileEnvelope } from '../utils/tileUtils';
-import Tile from './Tile';
 
 interface Map2Props {
-    initialZoom?: number;
-    initialLat?: number;
-    initialLng?: number;
+    zoom: number;
+    lat: number;
+    lng: number;
 }
 
-const Map2: React.FC<Map2Props> = ({ 
-    initialZoom = 10,
-    initialLat = 35.0,
-    initialLng = 138.9
-}) => {
+const Map2: React.FC<Map2Props> = ({ zoom, lat, lng }) => {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<maplibregl.Map | null>(null);
-    const [zoom, setZoom] = useState(initialZoom);
-    const [lat, setLat] = useState(initialLat);
-    const [lng, setLng] = useState(initialLng);
-
-    const updateMap = (newZoom: number, newLat: number, newLng: number) => {
-        setZoom(newZoom);
-        setLat(newLat);
-        setLng(newLng);
-
-        if (map.current) {
-            map.current.flyTo({
-                center: [newLng, newLat],
-                zoom: newZoom,
-                duration: 1000
-            });
-        }
-    };
 
     useEffect(() => {
         if (map.current || !mapContainer.current) return;
@@ -109,18 +87,15 @@ const Map2: React.FC<Map2Props> = ({
     }, [zoom, lng, lat]);
 
     return (
-        <>
-            <Tile onUpdate={updateMap} />
-            <div
-                ref={mapContainer}
-                style={{
-                    width: '90%',
-                    aspectRatio: '1/1',
-                    maxWidth: '1800px',
-                    margin: '0 auto',
-                }}
-            />
-        </>
+        <div
+            ref={mapContainer}
+            style={{
+                width: '90%',
+                aspectRatio: '1/1',
+                maxWidth: '1800px',
+                margin: '0 auto',
+            }}
+        />
     );
 };
 
