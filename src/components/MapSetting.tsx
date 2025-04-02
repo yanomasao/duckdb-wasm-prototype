@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface MapSettingProps {
     onUpdate: (zoom: number, lat: number, lng: number) => void;
@@ -8,6 +8,31 @@ const MapSetting: React.FC<MapSettingProps> = ({ onUpdate }) => {
     const [zoom, setZoom] = useState<number>(10);
     const [lat, setLat] = useState<number>(35.7);
     const [lng, setLng] = useState<number>(139.7);
+
+    // 初期レンダリング時のみ実行
+    useEffect(() => {
+        onUpdate(zoom, lat, lng);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // 値が変更されたときにonUpdateを呼び出す
+    const handleZoomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newZoom = Number(e.target.value);
+        setZoom(newZoom);
+        onUpdate(newZoom, lat, lng);
+    };
+
+    const handleLatChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newLat = Number(e.target.value);
+        setLat(newLat);
+        onUpdate(zoom, newLat, lng);
+    };
+
+    const handleLngChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newLng = Number(e.target.value);
+        setLng(newLng);
+        onUpdate(zoom, lat, newLng);
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -23,7 +48,7 @@ const MapSetting: React.FC<MapSettingProps> = ({ onUpdate }) => {
                         type="number"
                         id="zoom"
                         value={zoom}
-                        onChange={(e) => setZoom(Number(e.target.value))}
+                        onChange={handleZoomChange}
                         min="0"
                         max="22"
                         style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
@@ -35,7 +60,7 @@ const MapSetting: React.FC<MapSettingProps> = ({ onUpdate }) => {
                         type="number"
                         id="lat"
                         value={lat}
-                        onChange={(e) => setLat(Number(e.target.value))}
+                        onChange={handleLatChange}
                         step="0.1"
                         style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
                     />
@@ -46,7 +71,7 @@ const MapSetting: React.FC<MapSettingProps> = ({ onUpdate }) => {
                         type="number"
                         id="lng"
                         value={lng}
-                        onChange={(e) => setLng(Number(e.target.value))}
+                        onChange={handleLngChange}
                         step="0.1"
                         style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
                     />
