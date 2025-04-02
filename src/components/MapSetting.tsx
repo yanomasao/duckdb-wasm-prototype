@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 
-interface TileProps {
+interface MapSettingProps {
     onUpdate: (zoom: number, lat: number, lng: number) => void;
 }
 
-const Tile: React.FC<TileProps> = ({ onUpdate }) => {
+const MapSetting: React.FC<MapSettingProps> = ({ onUpdate }) => {
     const [zoom, setZoom] = useState<number>(10);
     const [lat, setLat] = useState<number>(35.7);
     const [lng, setLng] = useState<number>(139.7);
@@ -70,4 +70,4 @@ const Tile: React.FC<TileProps> = ({ onUpdate }) => {
     );
 };
 
-export default Tile; 
+export default MapSetting; 

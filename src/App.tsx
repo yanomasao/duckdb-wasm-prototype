@@ -5,8 +5,8 @@ import reactLogo from "./assets/react.svg";
 import { DuckDbQuery } from "./components/DuckDbQuery";
 import { DuckDbResult } from "./components/DuckDbResult";
 import Map from "./components/Map";
+import MapSetting from './components/MapSetting';
 import { TableList } from "./components/TableList";
-import Tile from "./components/Tile";
 import { useDuckDB } from "./hooks/useDuckDB";
 import { createTileGeoJSON } from "./utils/tileUtils";
 import viteLogo from "/vite.svg";
@@ -396,6 +396,10 @@ function App() {
         }));
     };
 
+    const handleTileUpdate = (zoom: number, lat: number, lng: number) => {
+        setMapParams({ zoom, lat, lng });
+    };
+
     if (dbError) {
         return <div>Error initializing DuckDB: {dbError.message}</div>;
     }
@@ -459,7 +463,9 @@ function App() {
                     limitToTileStates={limitToTileStates}
                 />
             </div>
-            <Tile onUpdate={(zoom, lat, lng) => setMapParams({ zoom, lat, lng })} />
+            <div className="card">
+                <MapSetting onUpdate={handleTileUpdate} />
+            </div>
             <Map 
                 points={points} 
                 db={db} 
