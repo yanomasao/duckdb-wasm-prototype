@@ -52,6 +52,7 @@ function App() {
     const [isCreatingTable, setIsCreatingTable] = useState(false);
     const [mapParams, setMapParams] = useState({ zoom: 10, lat: 35.7, lng: 139.7 });
     const [showTile, setShowTile] = useState(true);
+    const [showTableList, setShowTableList] = useState(false);
 
     // ランダムな色を生成する関数
     const generateRandomColor = () => {
@@ -294,6 +295,7 @@ function App() {
 
     const showTables = async () => {
         await fetchTables();
+        setShowTableList(prev => !prev);
     };
 
     const handleColumnAliasChange = (
@@ -439,34 +441,36 @@ function App() {
                     disabled={!db}
                 />
                 <DuckDbResult result={queryResult} error={queryError} />
-                <TableList
-                    tables={tables}
-                    selectedTables={selectedTables}
-                    onTableSelect={handleTableSelect}
-                    db={db}
-                    onColumnAliasChange={handleColumnAliasChange}
-                    onTableDelete={handleTableDelete}
-                    onTableConditionChange={handleTableConditionChange}
-                    onShowTableData={handleShowTableData}
-                    columnStates={columnStates}
-                    setColumnStates={setColumnStates}
-                    onColumnSelect={(
-                        tableName: string,
-                        columnName: string,
-                        selected: boolean
-                    ) => {
-                        setColumnStates((prev) => ({
-                            ...prev,
-                            [tableName]: prev[tableName].map((col) =>
-                                col.name === columnName
-                                    ? { ...col, selected }
-                                    : col
-                            ),
-                        }));
-                    }}
-                    onLimitToTileChange={handleLimitToTileChange}
-                    limitToTileStates={limitToTileStates}
-                />
+                {showTableList && (
+                    <TableList
+                        tables={tables}
+                        selectedTables={selectedTables}
+                        onTableSelect={handleTableSelect}
+                        db={db}
+                        onColumnAliasChange={handleColumnAliasChange}
+                        onTableDelete={handleTableDelete}
+                        onTableConditionChange={handleTableConditionChange}
+                        onShowTableData={handleShowTableData}
+                        columnStates={columnStates}
+                        setColumnStates={setColumnStates}
+                        onColumnSelect={(
+                            tableName: string,
+                            columnName: string,
+                            selected: boolean
+                        ) => {
+                            setColumnStates((prev) => ({
+                                ...prev,
+                                [tableName]: prev[tableName].map((col) =>
+                                    col.name === columnName
+                                        ? { ...col, selected }
+                                        : col
+                                ),
+                            }));
+                        }}
+                        onLimitToTileChange={handleLimitToTileChange}
+                        limitToTileStates={limitToTileStates}
+                    />
+                )}
             </div>
             <div className="card">
                 <MapSetting 
