@@ -1,15 +1,27 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface MapSettingProps {
     onUpdate: (zoom: number, lat: number, lng: number) => void;
     showTile: boolean;
     onShowTileChange: (show: boolean) => void;
+    lat?: number;
+    lng?: number;
 }
 
-const MapSetting: React.FC<MapSettingProps> = ({ onUpdate, showTile, onShowTileChange }) => {
+const MapSetting: React.FC<MapSettingProps> = ({ onUpdate, showTile, onShowTileChange, lat: propLat, lng: propLng }) => {
     const [zoom, setZoom] = useState<number>(10);
     const [lat, setLat] = useState<number>(35.7);
     const [lng, setLng] = useState<number>(139.7);
+
+    // propsから緯度経度を受け取った場合、内部状態を更新
+    useEffect(() => {
+        if (propLat !== undefined) {
+            setLat(propLat);
+        }
+        if (propLng !== undefined) {
+            setLng(propLng);
+        }
+    }, [propLat, propLng]);
 
     // 値が変更されたときにonUpdateを呼び出す
     const handleZoomChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -473,6 +473,8 @@ function App() {
                     onUpdate={handleTileUpdate} 
                     showTile={showTile}
                     onShowTileChange={handleShowTileChange}
+                    lat={mapParams.lat}
+                    lng={mapParams.lng}
                 />
             </div>
             <Map 
