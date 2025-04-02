@@ -57,7 +57,8 @@ const MapSetting: React.FC<MapSettingProps> = ({ onUpdate, showTile, onShowTileC
                         value={lat}
                         onChange={handleLatChange}
                         step="0.1"
-                        style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
+                        readOnly
+                        style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: '#f0f0f0', width: '70px' }}
                     />
                 </div>
                 <div>
@@ -68,7 +69,8 @@ const MapSetting: React.FC<MapSettingProps> = ({ onUpdate, showTile, onShowTileC
                         value={lng}
                         onChange={handleLngChange}
                         step="0.1"
-                        style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
+                        readOnly
+                        style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: '#f0f0f0', width: '70px' }}
                     />
                 </div>
                 <div>
