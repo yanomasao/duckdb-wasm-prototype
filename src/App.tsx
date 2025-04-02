@@ -460,7 +460,14 @@ function App() {
                 />
             </div>
             <Tile onUpdate={(zoom, lat, lng) => setMapParams({ zoom, lat, lng })} />
-            <Map points={points} db={db} zoom={mapParams.zoom} lat={mapParams.lat} lng={mapParams.lng} />
+            <Map 
+                points={points} 
+                db={db} 
+                zoom={mapParams.zoom} 
+                lat={mapParams.lat} 
+                lng={mapParams.lng} 
+                onMapClick={(lat, lng) => setMapParams(prev => ({ ...prev, lat, lng }))}
+            />
             <p className='read-the-docs'>
                 Click on the Vite and React logos to learn more
             </p>

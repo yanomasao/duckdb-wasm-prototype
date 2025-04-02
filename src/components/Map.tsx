@@ -21,6 +21,7 @@ interface MapProps {
     zoom: number;
     lat: number;
     lng: number;
+    onMapClick?: (lat: number, lng: number) => void;
 }
 
 interface GeoJSONFeature {
@@ -38,7 +39,7 @@ interface GeoJSONFeature {
     };
 }
 
-const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, lng }) => {
+const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, lng, onMapClick }) => {
     const [popup, setPopup] = useState<maplibregl.Popup | null>(null);
     const [map, setMap] = useState<maplibregl.Map | null>(null);
 
@@ -96,70 +97,79 @@ const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, 
         });
 
         mapInstance.on("load", () => {
-            // // Add click event handler for the map
-            // mapInstance.on("click", (e) => {
-            //     const { lng, lat } = e.lngLat;
+            // Add click event handler for the map
+            mapInstance.on("click", (e) => {
+                const { lng, lat } = e.lngLat;
+                
+                // クリックされた位置にマーカーがあるかチェック
+                const features = mapInstance.queryRenderedFeatures(e.point);
+                
+                if (features.length > 0) {
+                    // マーカーがクリックされた場合はポップアップを表示（既存の処理）
+                    const feature = features[0];
+                    const geometry = feature.geometry;
+                    const coordinates =
+                        geometry.type === "Point"
+                            ? (geometry.coordinates as [number, number])
+                            : geometry.type === "LineString"
+                            ? ((geometry.coordinates as number[][])[0] as [
+                                  number,
+                                  number
+                              ])
+                            : ((geometry.coordinates as number[][][])[0][0] as [
+                                  number,
+                                  number
+                              ]);
+                    const name = feature.properties?.name as string;
+                    const tableName = feature.properties?.tableName;
+                    const columnValues = feature.properties?.columnValues || {};
 
-            //     // Remove existing popup if any
-            //     if (popup) {
-            //         popup.remove();
-            //     }
+                    // Remove existing popup if any
+                    if (popup) {
+                        popup.remove();
+                    }
 
-            //     // Create new popup with form
-            //     const newPopup = new maplibregl.Popup()
-            //         .setLngLat([lng, lat])
-            //         .setHTML(
-            //             `
-            //             <div>
-            //                 <div style="margin-bottom: 10px;">
-            //                     <div>緯度: ${lat.toFixed(6)}</div>
-            //                     <div>経度: ${lng.toFixed(6)}</div>
-            //                 </div>
-            //                 <form id="point-form" style="margin-top: 10px;">
-            //                     <input type="text" id="point-name" placeholder="名称を入力" style="width: 90%; padding: 5px; margin-bottom: 5px;">
-            //                     <button type="submit" style="width: 100%; padding: 5px; background-color: #4CAF50; color: white; border: none; cursor: pointer;">保存</button>
-            //                 </form>
-            //             </div>
-            //         `
-            //         )
-            //         .addTo(mapInstance);
+                    // Create new popup
+                    const newPopup = new maplibregl.Popup({
+                        closeButton: true,
+                        closeOnClick: true,
+                        className: "custom-popup",
+                    })
+                        .setLngLat(coordinates)
+                        .setHTML(
+                            `
+                            <div>
+                                <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                                    ${Object.entries(
+                                        typeof columnValues === "string"
+                                            ? JSON.parse(columnValues)
+                                            : columnValues
+                                    )
+                                        .map(([key, value]) => {
+                                            return `<div style="margin-top: 4px;">${key}: <strong>${value}</strong></div>`;
+                                        })
+                                        .join("")}
+                                    <div>緯度: ${coordinates[1].toFixed(6)}</div>
+                                    <div>経度: ${coordinates[0].toFixed(6)}</div>
+                                    ${
+                                        tableName
+                                            ? `<div style="margin-bottom: 4px;">テーブル: <strong>${tableName}</strong></div>`
+                                            : ""
+                                    }
+                                </div>
+                            </div>
+                        `
+                        )
+                        .addTo(mapInstance);
 
-            //     // Add form submit handler
-            //     const form = document.getElementById("point-form");
-            //     if (form) {
-            //         form.addEventListener("submit", async (e) => {
-            //             e.preventDefault();
-            //             const nameInput = document.getElementById(
-            //                 "point-name"
-            //             ) as HTMLInputElement;
-            //             const name = nameInput.value;
-            //             if (name && db) {
-            //                 try {
-            //                     const conn = await db.connect();
-            //                     await conn.query("LOAD spatial;");
-
-            //                     // Create a point geometry from the clicked coordinates
-            //                     const pointGeom = `ST_POINT(${lng}, ${lat})`;
-
-            //                     // Insert the point into minato_wk table
-            //                     await conn.query(`
-            //                         INSERT INTO minato_wk (geom, 名称)
-            //                         VALUES (${pointGeom}, '${name}')
-            //                     `);
-            //                     await conn.query("CHECKPOINT");
-            //                     await conn.close();
-            //                     alert("ポイントを保存しました");
-            //                     newPopup.remove();
-            //                 } catch (err) {
-            //                     console.error("Error saving point:", err);
-            //                     alert("ポイントの保存に失敗しました");
-            //                 }
-            //             }
-            //         });
-            //     }
-
-            //     setPopup(newPopup);
-            // });
+                    setPopup(newPopup);
+                } else {
+                    // マーカー以外の場所がクリックされた場合は親コンポーネントに通知
+                    if (onMapClick) {
+                        onMapClick(lat, lng);
+                    }
+                }
+            });
         });
 
         setMap(mapInstance);
@@ -167,11 +177,28 @@ const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, 
         return () => {
             mapInstance.remove();
         };
-    }, [db, zoom, lat, lng]);
+    }, [db, zoom, lat, lng, onMapClick]);
 
     // Add points to the map when they change
     useEffect(() => {
         if (!map || !points.length) return;
+
+        // マップが完全に読み込まれるのを待つ
+        if (!map.loaded()) {
+            const onLoad = () => {
+                updateMapLayers();
+                map.off('load', onLoad);
+            };
+            map.on('load', onLoad);
+            return;
+        }
+
+        updateMapLayers();
+    }, [map, points, popup]);
+
+    // マップレイヤーを更新する関数
+    const updateMapLayers = () => {
+        if (!map) return;
 
         // Remove existing layers and source
         const layers = [
@@ -390,7 +417,7 @@ const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, 
         map.on("mouseleave", "polygons-layer", () => {
             map.getCanvas().style.cursor = "";
         });
-    }, [map, points, popup]);
+    };
 
     return <div id='map' style={{ 
         // height: "80vh"
