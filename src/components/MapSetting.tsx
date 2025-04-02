@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 
 interface MapSettingProps {
     onUpdate: (zoom: number, lat: number, lng: number) => void;
+    showTile: boolean;
+    onShowTileChange: (show: boolean) => void;
 }
 
-const MapSetting: React.FC<MapSettingProps> = ({ onUpdate }) => {
+const MapSetting: React.FC<MapSettingProps> = ({ onUpdate, showTile, onShowTileChange }) => {
     const [zoom, setZoom] = useState<number>(10);
     const [lat, setLat] = useState<number>(35.7);
     const [lng, setLng] = useState<number>(139.7);
@@ -26,6 +28,10 @@ const MapSetting: React.FC<MapSettingProps> = ({ onUpdate }) => {
         const newLng = Number(e.target.value);
         setLng(newLng);
         onUpdate(zoom, lat, newLng);
+    };
+
+    const handleShowTileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        onShowTileChange(e.target.checked);
     };
 
     return (
@@ -64,6 +70,17 @@ const MapSetting: React.FC<MapSettingProps> = ({ onUpdate }) => {
                         step="0.1"
                         style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
                     />
+                </div>
+                <div>
+                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                        <input
+                            type="checkbox"
+                            checked={showTile}
+                            onChange={handleShowTileChange}
+                            style={{ margin: 0 }}
+                        />
+                        <span>タイルを表示</span>
+                    </label>
                 </div>
             </div>
         </div>

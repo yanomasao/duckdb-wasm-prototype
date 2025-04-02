@@ -21,6 +21,7 @@ interface MapProps {
     zoom: number;
     lat: number;
     lng: number;
+    showTile: boolean;
     onMapClick?: (lat: number, lng: number) => void;
 }
 
@@ -39,10 +40,9 @@ interface GeoJSONFeature {
     };
 }
 
-const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, lng, onMapClick }) => {
+const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, lng, showTile, onMapClick }) => {
     const [popup, setPopup] = useState<maplibregl.Popup | null>(null);
     const [map, setMap] = useState<maplibregl.Map | null>(null);
-    const [showTile, setShowTile] = useState(true);
 
     useEffect(() => {
         // タイルのGeoJSONを作成
@@ -445,26 +445,6 @@ const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, 
                 margin: '0 auto',
                 height: 'auto'
             }}></div>
-            <div style={{
-                position: "absolute",
-                top: "10px",
-                right: "10px",
-                backgroundColor: "white",
-                padding: "10px",
-                borderRadius: "4px",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                zIndex: 1
-            }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-                    <input
-                        type="checkbox"
-                        checked={showTile}
-                        onChange={(e) => setShowTile(e.target.checked)}
-                        style={{ margin: 0 }}
-                    />
-                    <span>タイルを表示</span>
-                </label>
-            </div>
         </div>
     );
 };

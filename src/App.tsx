@@ -51,6 +51,7 @@ function App() {
     }>({});
     const [isCreatingTable, setIsCreatingTable] = useState(false);
     const [mapParams, setMapParams] = useState({ zoom: 10, lat: 35.7, lng: 139.7 });
+    const [showTile, setShowTile] = useState(true);
 
     // ランダムな色を生成する関数
     const generateRandomColor = () => {
@@ -400,6 +401,10 @@ function App() {
         setMapParams({ zoom, lat, lng });
     };
 
+    const handleShowTileChange = (show: boolean) => {
+        setShowTile(show);
+    };
+
     if (dbError) {
         return <div>Error initializing DuckDB: {dbError.message}</div>;
     }
@@ -464,7 +469,11 @@ function App() {
                 />
             </div>
             <div className="card">
-                <MapSetting onUpdate={handleTileUpdate} />
+                <MapSetting 
+                    onUpdate={handleTileUpdate} 
+                    showTile={showTile}
+                    onShowTileChange={handleShowTileChange}
+                />
             </div>
             <Map 
                 points={points} 
@@ -472,6 +481,7 @@ function App() {
                 zoom={mapParams.zoom} 
                 lat={mapParams.lat} 
                 lng={mapParams.lng} 
+                showTile={showTile}
                 onMapClick={(lat, lng) => setMapParams(prev => ({ ...prev, lat, lng }))}
             />
         </>
