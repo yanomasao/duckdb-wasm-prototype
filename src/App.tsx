@@ -474,9 +474,6 @@ function App() {
                 lng={mapParams.lng} 
                 onMapClick={(lat, lng) => setMapParams(prev => ({ ...prev, lat, lng }))}
             />
-            <p className='read-the-docs'>
-                Click on the Vite and React logos to learn more
-            </p>
         </>
     );
 }
