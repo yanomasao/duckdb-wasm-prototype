@@ -42,6 +42,7 @@ interface GeoJSONFeature {
 const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, lng, onMapClick }) => {
     const [popup, setPopup] = useState<maplibregl.Popup | null>(null);
     const [map, setMap] = useState<maplibregl.Map | null>(null);
+    const [showTile, setShowTile] = useState(true);
 
     useEffect(() => {
         // タイルのGeoJSONを作成
@@ -83,6 +84,9 @@ const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, 
                         paint: {
                             "fill-color": "#00aaff",
                             "fill-opacity": 0.5
+                        },
+                        layout: {
+                            visibility: showTile ? "visible" : "none"
                         }
                     },
                     {
@@ -195,6 +199,19 @@ const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, 
 
         updateMapLayers();
     }, [map, points, popup]);
+
+    // タイルの表示/非表示を切り替える
+    useEffect(() => {
+        if (!map) return;
+        
+        if (map.loaded()) {
+            map.setLayoutProperty("tile-layer", "visibility", showTile ? "visible" : "none");
+        } else {
+            map.once('load', () => {
+                map.setLayoutProperty("tile-layer", "visibility", showTile ? "visible" : "none");
+            });
+        }
+    }, [map, showTile]);
 
     // マップレイヤーを更新する関数
     const updateMapLayers = () => {
@@ -419,14 +436,37 @@ const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, 
         });
     };
 
-    return <div id='map' style={{ 
-        // height: "80vh"
-            width: '90%',
-            aspectRatio: '1/1',
-            maxWidth: '1800px',
-            margin: '0 auto',
-
-     }}></div>;
+    return (
+        <div style={{ position: "relative" }}>
+            <div id='map' style={{ 
+                width: '90%',
+                aspectRatio: '1/1',
+                maxWidth: '1800px',
+                margin: '0 auto',
+                height: 'auto'
+            }}></div>
+            <div style={{
+                position: "absolute",
+                top: "10px",
+                right: "10px",
+                backgroundColor: "white",
+                padding: "10px",
+                borderRadius: "4px",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                zIndex: 1
+            }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                    <input
+                        type="checkbox"
+                        checked={showTile}
+                        onChange={(e) => setShowTile(e.target.checked)}
+                        style={{ margin: 0 }}
+                    />
+                    <span>タイルを表示</span>
+                </label>
+            </div>
+        </div>
+    );
 };
 
 export default Map;
