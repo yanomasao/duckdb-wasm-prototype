@@ -1,10 +1,11 @@
-import "./App.css";
-import reactLogo from "./assets/react.svg";
-import Map from "./components/Map";
-import viteLogo from "/vite.svg";
+import './App.css';
+import reactLogo from './assets/react.svg';
+import Map from './components/Map';
+import { useDuckDB } from './hooks/useDuckDB';
+import viteLogo from '/vite.svg';
 
 function App() {
-
+    const { db, error: dbError } = useDuckDB();
 
     return (
         <>
@@ -20,7 +21,7 @@ function App() {
                     />
                 </a>
             </div>
-            <Map />
+            <Map db={db} />
         </>
     );
 }
