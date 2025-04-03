@@ -71,7 +71,7 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                                     ST_Simplify(ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat}), 0.0001)
                                 )
                             ) AS geojson
-                            FROM disney
+                            FROM tokyo
                             WHERE ST_Intersects(ST_Simplify(geom, 0.0001), ST_Simplify(ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat}), 0.0001))
                         `;
 
@@ -89,8 +89,10 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                     type: 'FeatureCollection',
                     features: [],
                   };
+                  console.log('Empty GeoJSON to be sent:', emptyGeoJSON);
                   const encoder = new TextEncoder();
                   const data = encoder.encode(JSON.stringify(emptyGeoJSON));
+                  console.log('Encoded data:', data);
                   resolve({ data });
                   return;
                 }
@@ -110,7 +112,12 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                         return {
                           type: 'Feature',
                           geometry: geometry,
-                          properties: {},
+                          properties: {
+                            id: row.id,
+                            name: row.name,
+                            type: row.type,
+                            description: row.description,
+                          },
                         };
                       } catch (parseError) {
                         console.error(`Error parsing row ${index}:`, parseError);
@@ -162,7 +169,7 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
       // マップの初期化
       const mapInstance = new maplibregl.Map({
         container: 'map',
-        zoom: 5,
+        zoom: 10,
         center: [139, 35],
         style: {
           version: 8,
