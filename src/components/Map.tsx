@@ -309,20 +309,7 @@ const Map: React.FC<MapProps> = ({ points = [], db, selectedColumns, zoom, lat, 
                 paint: {
                     "fill-color": ["get", "color"],
                     "fill-opacity": 0.2,
-                    "fill-outline-color": ["get", "color"],
-                },
-            });
-
-            // Add polygon outline layer
-            map.addLayer({
-                id: "polygons-outline-layer",
-                type: "line",
-                source: "points-source",
-                filter: ["==", ["geometry-type"], "Polygon"],
-                paint: {
-                    "line-color": ["get", "color"],
-                    "line-width": 2,
-                    "line-opacity": 1,
+                    "fill-outline-color": "transparent"
                 },
             });
         }
