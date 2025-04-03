@@ -113,10 +113,10 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                           type: 'Feature',
                           geometry: geometry,
                           properties: {
-                            id: row.id,
-                            name: row.name,
-                            type: row.type,
-                            description: row.description,
+                            // id: row.id,
+                            // name: row.name,
+                            // type: row.type,
+                            // description: row.description,
                           },
                         };
                       } catch (parseError) {
@@ -144,10 +144,10 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                   const encoder = new TextEncoder();
                   const data = encoder.encode(geojsonString);
 
-                  resolve({ data });
+                  return resolve({ data });
                 } catch (error) {
                   console.error('Error processing query result:', error);
-                  reject(error);
+                  return reject(error);
                 }
               })
               .catch(error => {
@@ -184,6 +184,7 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
             'duckdb-geojson': {
               type: 'geojson',
               data: 'duckdb-geojson://0/0/0.geojson',
+              // data: 'duckdb-geojson://{z}/{x}/{y}.geojson',
               maxzoom: 19,
             },
           },
@@ -216,11 +217,9 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
           try {
             const zoom = Math.floor(mapInstance.getZoom());
             console.log('Current zoom level:', zoom);
-
             // 現在のビューポートの中心を取得
             const center = mapInstance.getCenter();
             console.log('Current center:', center);
-
             // タイル座標を計算
             const x = Math.floor(((center.lng + 180) / 360) * Math.pow(2, zoom));
             const y = Math.floor(
@@ -231,7 +230,6 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
               y,
               z: zoom,
             });
-
             // タイルのURLを更新
             const source = mapInstance.getSource('duckdb-geojson') as maplibregl.GeoJSONSource;
             if (source) {
