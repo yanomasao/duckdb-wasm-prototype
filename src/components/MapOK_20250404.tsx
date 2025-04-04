@@ -1,4 +1,5 @@
 import { AsyncDuckDB } from '@duckdb/duckdb-wasm';
+import { Feature, GeoJsonProperties, Polygon } from 'geojson';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import React, { useEffect, useState } from 'react';
@@ -34,7 +35,7 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
       setMapError(null);
     } else {
       console.error('DuckDB is not initialized');
-      // setMapError('DuckDBが初期化されていません');
+      setMapError('DuckDBが初期化されていません');
       return;
     }
 
@@ -318,6 +319,7 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                                   )
                                 ) AS geojson
                                 FROM tokyo
+                                -- FROM uc14
                                 WHERE ST_Intersects(ST_Simplify(geom, 0.0001), ST_Simplify(ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat}), 0.0001))
                               `;
 
@@ -331,7 +333,9 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                                   // 結果が空の場合は空のGeoJSONを返す
                                   if (result.numRows === 0) {
                                     console.log('No data found for this tile, returning empty GeoJSON');
-                                    resolve({ data: tileGeoJSON });
+                                    const encoder = new TextEncoder();
+                                    const buffer = encoder.encode(JSON.stringify(tileGeoJSON));
+                                    resolve({ data: buffer });
                                     return;
                                   }
 
@@ -373,9 +377,13 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                                     console.log('Final GeoJSON:', JSON.stringify(geojson));
 
                                     // タイルのGeoJSONと結合
-                                    tileGeoJSON.features = [...tileGeoJSON.features, ...geojson.features];
-                                    console.log('Combined GeoJSON:', JSON.stringify(tileGeoJSON));
-                                    resolve({ data: tileGeoJSON });
+                                    const combinedGeoJSON = {
+                                      ...tileGeoJSON,
+                                      features: [...tileGeoJSON.features, ...geojson.features] as Feature<Polygon, GeoJsonProperties>[],
+                                    };
+                                    const encoder = new TextEncoder();
+                                    const buffer = encoder.encode(JSON.stringify(combinedGeoJSON));
+                                    resolve({ data: buffer });
                                   } catch (error) {
                                     console.error('Error processing query result:', error);
                                     reject(error);
