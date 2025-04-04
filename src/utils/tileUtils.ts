@@ -76,6 +76,22 @@ export function createTileGeoJSON(z: number, x: number, y: number): {
     };
 }
 
+// 緯度経度をWebメルカトル座標に変換する関数
+function lngLatToMercator(lng: number, lat: number): [number, number] {
+    const x = lng * 20037508.34 / 180;
+    let y = Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180);
+    y = y * 20037508.34 / 180;
+    return [x, y];
+}
+
+// Webメルカトル座標を緯度経度に変換する関数
+function mercatorToLngLat(x: number, y: number): [number, number] {
+    const lng = x * 180 / 20037508.34;
+    let lat = y * 180 / 20037508.34;
+    lat = 180 / Math.PI * (2 * Math.atan(Math.exp(lat * Math.PI / 180)) - Math.PI / 2);
+    return [lng, lat];
+}
+
 export async function geojsonToRaster(features: Feature<Geometry, GeoJsonProperties>[], z: number, x: number, y: number): Promise<Uint8Array> {
     console.log('Converting to Raster:', {
         numFeatures: features.length,
@@ -95,11 +111,12 @@ export async function geojsonToRaster(features: Feature<Geometry, GeoJsonPropert
     // 背景を透明に設定
     ctx.clearRect(0, 0, 256, 256);
 
-    // タイルの境界を計算
-    const minLng = (x / Math.pow(2, z)) * 360 - 180;
-    const maxLng = ((x + 1) / Math.pow(2, z)) * 360 - 180;
-    const minLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / Math.pow(2, z)))) * (180 / Math.PI);
-    const maxLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + 1)) / Math.pow(2, z)))) * (180 / Math.PI);
+    // タイルの境界を計算（Webメルカトル座標）
+    const tileSize = 20037508.34 * 2 / Math.pow(2, z);
+    const minX = -20037508.34 + x * tileSize;
+    const maxX = -20037508.34 + (x + 1) * tileSize;
+    const minY = 20037508.34 - (y + 1) * tileSize;
+    const maxY = 20037508.34 - y * tileSize;
 
     // 各フィーチャーを描画
     features.forEach(feature => {
@@ -114,8 +131,11 @@ export async function geojsonToRaster(features: Feature<Geometry, GeoJsonPropert
                     const path = new Path2D();
                     ring.forEach((coord, index) => {
                         const position = coord as Position;
-                        const xPixel = ((position[0] - minLng) / (maxLng - minLng)) * 256;
-                        const yPixel = ((maxLat - position[1]) / (maxLat - minLat)) * 256;
+                        // 緯度経度をWebメルカトル座標に変換
+                        const [mercX, mercY] = lngLatToMercator(position[0], position[1]);
+                        // Webメルカトル座標をピクセル座標に変換（Y座標を反転）
+                        const xPixel = ((mercX - minX) / (maxX - minX)) * 256;
+                        const yPixel = 256 - ((mercY - minY) / (maxY - minY)) * 256;
                         if (index === 0) {
                             path.moveTo(xPixel, yPixel);
                         } else {
