@@ -3,7 +3,7 @@ import { Feature, GeoJsonProperties, Geometry } from 'geojson';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import React, { useEffect, useState } from 'react';
-import { geojsonToMVT } from '../utils/tileUtils';
+import { geojsonToRaster } from '../utils/tileUtils';
 
 const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
   const [mapError, setMapError] = useState<string | null>(null);
@@ -31,21 +31,21 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
         }
         conn.close();
 
-        // Add geojson protocol handler
-        maplibregl.addProtocol('duckdb-geojson', async (params, abortController) => {
+        // Add raster protocol handler
+        maplibregl.addProtocol('duckdb-raster', async (params, abortController) => {
           console.log('Protocol handler called with URL:', params.url);
 
           // URLをデコード
           const decodedUrl = decodeURIComponent(params.url);
           console.log('Decoded URL:', decodedUrl);
 
-          if (decodedUrl === 'duckdb-geojson://{z}/{x}/{y}.geojson') {
+          if (decodedUrl === 'duckdb-raster://{z}/{x}/{y}.png') {
             console.log("Template URL detected, returning empty data");
             return { data: new Uint8Array() };
           }
 
           // タイルパスの解析を改善
-          const match = decodedUrl.match(/duckdb-geojson:\/\/(\d+)\/(\d+)\/(\d+)\.geojson$/);
+          const match = decodedUrl.match(/duckdb-raster:\/\/(\d+)\/(\d+)\/(\d+)\.png$/);
           if (!match) {
             console.error('Invalid tile path format:', decodedUrl);
             return { data: new Uint8Array() };
@@ -61,9 +61,10 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
               return;
             }
 
-            // DuckDBの接続を試みる
-            db.connect()
-              .then(conn => {
+            const processTile = async () => {
+              try {
+                // DuckDBの接続を試みる
+                const conn = await db.connect();
                 if (!conn) {
                   console.warn('DuckDB not ready');
                   reject(new Error('DB not ready'));
@@ -76,9 +77,7 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                 const maxLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + 1)) / Math.pow(2, z)))) * (180 / Math.PI);
 
                 const query = `
-                  SELECT ST_AsGeoJSON(
-                    ST_Transform(geom, 'EPSG:4326', 'EPSG:3857')
-                  ) AS geojson
+                  SELECT ST_AsGeoJSON(geom) AS geojson
                   FROM uc14
                   WHERE ST_Intersects(
                     geom,
@@ -87,66 +86,61 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                 `;
 
                 console.log('Executing query:', query);
-                return conn
-                  .query(query)
-                  .then(result => {
-                    if (result.numRows === 0) {
-                      console.log('No data found for this tile');
-                      resolve({ data: new Uint8Array() });
-                      return;
-                    }
+                const result = await conn.query(query);
 
-                    const rows = result.toArray();
-                    console.log('Raw rows:', rows);
-                    const features = rows.map((row, index) => {
-                      try {
-                        if (!row.geojson) {
-                          console.warn('Empty geojson for row:', row);
-                          return null;
-                        }
-                        console.log('Raw geojson string:', row.geojson);
-                        const geometry = JSON.parse(row.geojson) as Geometry;
-                        console.log('Parsed geometry:', geometry);
-                        return {
-                          type: 'Feature' as const,
-                          geometry: geometry,
-                          properties: {
-                            id: index
-                          }
-                        } as Feature<Geometry, GeoJsonProperties>;
-                      } catch (error) {
-                        console.error('Error parsing GeoJSON:', error);
-                        console.error('Problematic row:', row);
-                        return null;
+                if (result.numRows === 0) {
+                  console.log('No data found for this tile');
+                  resolve({ data: new Uint8Array() });
+                  return;
+                }
+
+                const rows = result.toArray();
+                console.log('Raw rows:', rows);
+                const features = rows.map((row, index) => {
+                  try {
+                    if (!row.geojson) {
+                      console.warn('Empty geojson for row:', row);
+                      return null;
+                    }
+                    console.log('Raw geojson string:', row.geojson);
+                    const geometry = JSON.parse(row.geojson) as Geometry;
+                    console.log('Parsed geometry:', geometry);
+                    return {
+                      type: 'Feature' as const,
+                      geometry: geometry,
+                      properties: {
+                        id: index
                       }
-                    }).filter((feature): feature is Feature<Geometry, GeoJsonProperties> => feature !== null);
+                    } as Feature<Geometry, GeoJsonProperties>;
+                  } catch (error) {
+                    console.error('Error parsing GeoJSON:', error);
+                    console.error('Problematic row:', row);
+                    return null;
+                  }
+                }).filter((feature): feature is Feature<Geometry, GeoJsonProperties> => feature !== null);
 
-                    if (features.length === 0) {
-                      console.log('No valid features found');
-                      resolve({ data: new Uint8Array() });
-                      return;
-                    }
+                if (features.length === 0) {
+                  console.log('No valid features found');
+                  resolve({ data: new Uint8Array() });
+                  return;
+                }
 
-                    try {
-                      const mvtData = geojsonToMVT(features, z, x, y);
-                      resolve({ data: mvtData });
-                    } catch (error) {
-                      console.error('Error converting to MVT:', error);
-                      resolve({ data: new Uint8Array() });
-                    }
-                  })
-                  .catch(error => {
-                    console.error('Query error:', error);
-                    reject(error);
-                  })
-                  .finally(() => {
-                    conn.close();
-                  });
-              })
-              .catch(error => {
-                console.error('Connection error:', error);
+                try {
+                  const rasterData = await geojsonToRaster(features, z, x, y);
+                  resolve({ data: rasterData });
+                } catch (error) {
+                  console.error('Error converting to Raster:', error);
+                  resolve({ data: new Uint8Array() });
+                }
+              } catch (error) {
+                console.error('Error:', error);
                 reject(error);
-              });
+              } finally {
+                conn?.close();
+              }
+            };
+
+            processTile().catch(reject);
           });
         });
 
@@ -166,10 +160,13 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                   tileSize: 256,
                   attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                 },
-                'duckdb-geojson': {
-                  type: 'vector',
-                  tiles: ['duckdb-geojson://{z}/{x}/{y}.geojson'],
+                'duckdb-raster': {
+                  type: 'raster',
+                  tiles: ['duckdb-raster://{z}/{x}/{y}.png'],
                   maxzoom: 19,
+                  tileSize: 256,
+                  minzoom: 0,
+                  scheme: 'xyz',
                 },
               },
               layers: [
@@ -180,12 +177,11 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                 },
                 {
                   id: 'duckdb-layer',
-                  type: 'fill',
-                  source: 'duckdb-geojson',
-                  "source-layer": 'uc14',
+                  source: 'duckdb-raster',
+                  type: 'raster',
                   paint: {
-                    'fill-color': '#FF6600',
-                    'fill-opacity': 0.2,
+                    'raster-opacity': 0.5,
+                    'raster-fade-duration': 0,
                   },
                 },
               ],

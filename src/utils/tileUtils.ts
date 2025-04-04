@@ -1,4 +1,4 @@
-import { Feature, GeoJsonProperties, Geometry, Polygon } from 'geojson';
+import { Feature, GeoJsonProperties, Geometry, MultiPolygon, Polygon, Position } from 'geojson';
 import Pbf from 'pbf';
 
 /**
@@ -76,76 +76,191 @@ export function createTileGeoJSON(z: number, x: number, y: number): {
     };
 }
 
+export async function geojsonToRaster(features: Feature<Geometry, GeoJsonProperties>[], z: number, x: number, y: number): Promise<Uint8Array> {
+    console.log('Converting to Raster:', {
+        numFeatures: features.length,
+        z, x, y
+    });
+
+    // オフスクリーンキャンバスを作成
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+        console.error('Failed to get canvas context');
+        return new Uint8Array();
+    }
+
+    // 背景を透明に設定
+    ctx.clearRect(0, 0, 256, 256);
+
+    // タイルの境界を計算
+    const minLng = (x / Math.pow(2, z)) * 360 - 180;
+    const maxLng = ((x + 1) / Math.pow(2, z)) * 360 - 180;
+    const minLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / Math.pow(2, z)))) * (180 / Math.PI);
+    const maxLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + 1)) / Math.pow(2, z)))) * (180 / Math.PI);
+
+    // 各フィーチャーを描画
+    features.forEach(feature => {
+        if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
+            const coordinates = feature.geometry.type === 'Polygon'
+                ? [feature.geometry.coordinates]
+                : feature.geometry.coordinates;
+
+            coordinates.forEach(polygon => {
+                polygon.forEach(ring => {
+                    // ポリゴンの頂点をピクセル座標に変換
+                    const path = new Path2D();
+                    ring.forEach((coord, index) => {
+                        const position = coord as Position;
+                        const xPixel = ((position[0] - minLng) / (maxLng - minLng)) * 256;
+                        const yPixel = ((maxLat - position[1]) / (maxLat - minLat)) * 256;
+                        if (index === 0) {
+                            path.moveTo(xPixel, yPixel);
+                        } else {
+                            path.lineTo(xPixel, yPixel);
+                        }
+                    });
+                    path.closePath();
+
+                    // ポリゴンを描画
+                    ctx.fillStyle = 'rgba(255, 102, 0, 0.5)';
+                    ctx.fill(path);
+                });
+            });
+        }
+    });
+
+    // キャンバスの内容をPNGデータとして取得
+    return new Promise((resolve) => {
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                console.error('Failed to create blob');
+                resolve(new Uint8Array());
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => {
+                const arrayBuffer = reader.result as ArrayBuffer;
+                resolve(new Uint8Array(arrayBuffer));
+            };
+            reader.readAsArrayBuffer(blob);
+        }, 'image/png');
+    });
+}
+
+// 点がポリゴン内にあるかどうかを判定する関数
+function isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
+    const [x, y] = point;
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const [xi, yi] = polygon[i];
+        const [xj, yj] = polygon[j];
+        const intersect = ((yi > y) !== (yj > y)) &&
+            (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
 export function geojsonToMVT(features: Feature<Geometry, GeoJsonProperties>[], z: number, x: number, y: number): Uint8Array {
-    // MVTデータを格納するバッファを作成
+    console.log('Converting to MVT:', {
+        numFeatures: features.length,
+        z, x, y
+    });
+
     const pbf = new Pbf();
 
     // レイヤー情報を書き込む
-    pbf.writeVarint(2); // layer version
-    pbf.writeString('uc14'); // layer name
+    pbf.writeVarint(2); // version
+    pbf.writeString('uc14'); // name
+    pbf.writeVarint(4096); // extent
 
     // フィーチャーを書き込む
-    features.forEach((feature) => {
+    features.forEach((feature, index) => {
+        console.log(`Processing feature ${index}:`, {
+            type: feature.geometry.type,
+            geometry: feature.geometry
+        });
+
         // フィーチャー情報を書き込む
-        pbf.writeMessage(2, (pbfInner: Pbf) => {
-            pbfInner.writeVarint(1); // feature id
-            pbfInner.writeMessage(2, (pbfProps: Pbf) => {
-                // プロパティを書き込む
+        pbf.writeMessage(2, (pbfFeature: Pbf) => {
+            // フィーチャーID
+            pbfFeature.writeVarint(1);
+            pbfFeature.writeVarint(index + 1);
+
+            // ジオメトリタイプ
+            pbfFeature.writeVarint(3);
+            pbfFeature.writeVarint(getMVTType(feature.geometry.type));
+
+            // プロパティ
+            pbfFeature.writeMessage(4, (pbfProps: Pbf) => {
                 Object.entries(feature.properties || {}).forEach(([key, value]) => {
                     pbfProps.writeString(key);
                     pbfProps.writeString(String(value));
                 });
             });
-            pbfInner.writeVarint(getMVTType(feature.geometry.type)); // geometry type
 
-            // ジオメトリを書き込む
-            switch (feature.geometry.type) {
-                case 'Polygon':
-                    writePolygon(pbfInner, feature.geometry.coordinates, x, y);
-                    break;
-                case 'MultiPolygon':
-                    writeMultiPolygon(pbfInner, feature.geometry.coordinates, x, y);
-                    break;
-                default:
-                    console.warn(`Unsupported geometry type: ${feature.geometry.type}`);
-            }
+            // ジオメトリ
+            pbfFeature.writeMessage(5, (pbfGeom: Pbf) => {
+                const geometry = feature.geometry.type === 'Polygon'
+                    ? convertPolygonToMVT((feature.geometry as Polygon).coordinates, x, y)
+                    : feature.geometry.type === 'MultiPolygon'
+                        ? convertMultiPolygonToMVT((feature.geometry as MultiPolygon).coordinates, x, y)
+                        : [];
+
+                geometry.forEach((coord: number) => {
+                    pbfGeom.writeVarint(coord);
+                });
+            });
         });
     });
 
-    // MVTデータを返す
-    return pbf.finish();
+    const mvtData = pbf.finish();
+    console.log('Generated MVT data length:', mvtData.length);
+    return mvtData;
 }
 
-function writePolygon(pbf: Pbf, coordinates: number[][][], x: number, y: number) {
-    // 外側のリング
-    const exterior = coordinates[0];
-    pbf.writeMessage(4, (pbfInner: Pbf) => {
-        const coords = exterior.flatMap(coord => [
-            Math.floor((coord[0] - x) * 4096),
-            Math.floor((coord[1] - y) * 4096)
-        ]);
-        coords.forEach(coord => pbfInner.writeVarint(coord));
+function convertPolygonToMVT(coordinates: number[][][], x: number, y: number): number[] {
+    const result: number[] = [];
+    coordinates.forEach((ring, ringIndex) => {
+        if (ringIndex === 0) {
+            // 外側のリング
+            result.push(1); // MoveTo
+            result.push(ring.length - 1); // 頂点数
+            ring.forEach((coord, i) => {
+                if (i < ring.length - 1) {
+                    const xCoord = Math.floor((coord[0] - x) * 4096);
+                    const yCoord = Math.floor((coord[1] - y) * 4096);
+                    result.push(xCoord, yCoord);
+                }
+            });
+        } else {
+            // 内側のリング（穴）
+            result.push(2); // LineTo
+            result.push(ring.length - 1); // 頂点数
+            ring.forEach((coord, i) => {
+                if (i < ring.length - 1) {
+                    const xCoord = Math.floor((coord[0] - x) * 4096);
+                    const yCoord = Math.floor((coord[1] - y) * 4096);
+                    result.push(xCoord, yCoord);
+                }
+            });
+        }
     });
-
-    // 内側のリング（穴）
-    for (let i = 1; i < coordinates.length; i++) {
-        pbf.writeMessage(4, (pbfInner: Pbf) => {
-            const coords = coordinates[i].flatMap(coord => [
-                Math.floor((coord[0] - x) * 4096),
-                Math.floor((coord[1] - y) * 4096)
-            ]);
-            coords.forEach(coord => pbfInner.writeVarint(coord));
-        });
-    }
+    return result;
 }
 
-function writeMultiPolygon(pbf: Pbf, coordinates: number[][][][], x: number, y: number) {
+function convertMultiPolygonToMVT(coordinates: number[][][][], x: number, y: number): number[] {
+    const result: number[] = [];
     coordinates.forEach(polygon => {
-        writePolygon(pbf, polygon, x, y);
+        result.push(...convertPolygonToMVT(polygon, x, y));
     });
+    return result;
 }
 
-function getMVTType(geojsonType: string): 0 | 1 | 2 | 3 {
+function getMVTType(geojsonType: string): number {
     switch (geojsonType) {
         case 'Point':
             return 1;
@@ -153,6 +268,12 @@ function getMVTType(geojsonType: string): 0 | 1 | 2 | 3 {
             return 2;
         case 'Polygon':
             return 3;
+        case 'MultiPoint':
+            return 4;
+        case 'MultiLineString':
+            return 5;
+        case 'MultiPolygon':
+            return 6;
         default:
             return 0;
     }
