@@ -145,10 +145,104 @@ export async function geojsonToRaster(features: Feature<Geometry, GeoJsonPropert
                     path.closePath();
 
                     // ポリゴンを描画
-                    ctx.fillStyle = 'rgba(255, 102, 0, 0.5)';
+                    ctx.fillStyle = 'rgba(0, 102, 255, 0.3)';
                     ctx.fill(path);
+                    ctx.strokeStyle = 'rgba(0, 0, 255, 0.5)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke(path);
                 });
             });
+        } else if (feature.geometry.type === 'Point') {
+            // Pointタイプの描画
+            const position = feature.geometry.coordinates as Position;
+            const [mercX, mercY] = lngLatToMercator(position[0], position[1]);
+            const xPixel = Math.floor(((mercX - minX) / (maxX - minX)) * 256);
+            const yPixel = Math.floor(256 - ((mercY - minY) / (maxY - minY)) * 256);
+
+            if (xPixel >= 0 && xPixel < 256 && yPixel >= 0 && yPixel < 256) {
+                ctx.beginPath();
+                ctx.arc(xPixel, yPixel, 5, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 255, 0.8)';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        } else if (feature.geometry.type === 'LineString') {
+            // LineStringタイプの描画
+            const coordinates = feature.geometry.coordinates;
+            ctx.beginPath();
+            let isFirstPoint = true;
+            let lastValidPoint: [number, number] | null = null;
+
+            for (const coord of coordinates) {
+                const [mercX, mercY] = lngLatToMercator(coord[0], coord[1]);
+                const xPixel = Math.floor(((mercX - minX) / (maxX - minX)) * 256);
+                const yPixel = Math.floor(256 - ((mercY - minY) / (maxY - minY)) * 256);
+
+                // 座標がキャンバスの範囲内かチェック
+                const isInBounds = xPixel >= 0 && xPixel < 256 && yPixel >= 0 && yPixel < 256;
+
+                if (isInBounds) {
+                    if (isFirstPoint) {
+                        ctx.moveTo(xPixel, yPixel);
+                        isFirstPoint = false;
+                        lastValidPoint = [xPixel, yPixel];
+                    } else {
+                        // 前の点と現在の点の間に線を引く
+                        if (lastValidPoint) {
+                            ctx.moveTo(lastValidPoint[0], lastValidPoint[1]);
+                            ctx.lineTo(xPixel, yPixel);
+                        }
+                        lastValidPoint = [xPixel, yPixel];
+                    }
+                } else if (lastValidPoint) {
+                    // 範囲外の点をスキップし、次の有効な点まで線を引かない
+                    lastValidPoint = null;
+                }
+            }
+
+            ctx.strokeStyle = 'rgba(0, 0, 255, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        } else if (feature.geometry.type === 'MultiLineString') {
+            // MultiLineStringタイプの描画
+            for (const line of feature.geometry.coordinates) {
+                ctx.beginPath();
+                let isFirstPoint = true;
+                let lastValidPoint: [number, number] | null = null;
+
+                for (const coord of line) {
+                    const [mercX, mercY] = lngLatToMercator(coord[0], coord[1]);
+                    const xPixel = Math.floor(((mercX - minX) / (maxX - minX)) * 256);
+                    const yPixel = Math.floor(256 - ((mercY - minY) / (maxY - minY)) * 256);
+
+                    // 座標がキャンバスの範囲内かチェック
+                    const isInBounds = xPixel >= 0 && xPixel < 256 && yPixel >= 0 && yPixel < 256;
+
+                    if (isInBounds) {
+                        if (isFirstPoint) {
+                            ctx.moveTo(xPixel, yPixel);
+                            isFirstPoint = false;
+                            lastValidPoint = [xPixel, yPixel];
+                        } else {
+                            // 前の点と現在の点の間に線を引く
+                            if (lastValidPoint) {
+                                ctx.moveTo(lastValidPoint[0], lastValidPoint[1]);
+                                ctx.lineTo(xPixel, yPixel);
+                            }
+                            lastValidPoint = [xPixel, yPixel];
+                        }
+                    } else if (lastValidPoint) {
+                        // 範囲外の点をスキップし、次の有効な点まで線を引かない
+                        lastValidPoint = null;
+                    }
+                }
+
+                ctx.strokeStyle = 'rgba(0, 0, 255, 0.8)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
         }
     });
 

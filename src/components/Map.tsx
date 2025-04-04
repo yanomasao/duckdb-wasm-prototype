@@ -78,7 +78,7 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
 
                                 const query = `
                                     SELECT ST_AsGeoJSON(geom) AS geojson
-                                    FROM tokyo
+                                    FROM uc14_ais_traffic
                                     WHERE ST_Intersects(
                                         geom,
                                         ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
@@ -150,7 +150,7 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                     // マップの初期化
                     const mapInstance = new maplibregl.Map({
                         container: 'map',
-                        zoom: 10,
+                        zoom: 5,
                         center: [139, 35],
                         style: {
                             version: 8,
