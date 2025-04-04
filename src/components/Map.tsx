@@ -78,7 +78,7 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
 
                                 const query = `
                                     SELECT ST_AsGeoJSON(geom) AS geojson
-                                    FROM uc14_ais_traffic
+                                    FROM uc14_ship_accident
                                     WHERE ST_Intersects(
                                         geom,
                                         ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
@@ -151,7 +151,7 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                     const mapInstance = new maplibregl.Map({
                         container: 'map',
                         zoom: 5,
-                        center: [139, 35],
+                        center: [139.7, 35.7],
                         style: {
                             version: 8,
                             sources: {
@@ -233,13 +233,12 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
             <div
                 id="map"
                 style={{
-                    width: '100%',
-                    height: '100%',
+                    height: '90%',
+                    aspectRatio: '1/1',
                     position: 'absolute',
-                    top: 0,
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
                 }}
             ></div>
             {isLoading && (
