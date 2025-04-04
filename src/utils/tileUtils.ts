@@ -41,22 +41,36 @@ export function getTileCoordinates(lng: number, lat: number, zoom: number): [num
  * @param lng 経度
  * @returns GeoJSON Feature<Polygon>
  */
-export const createTileGeoJSON = (zoom: number, lat: number, lng: number): Feature<Polygon> => {
-    const [tileX, tileY] = getTileCoordinates(lng, lat, zoom);
-    const [west, south, east, north] = getTileEnvelope(zoom, tileX, tileY);
+export function createTileGeoJSON(z: number, x: number, y: number): {
+    type: 'FeatureCollection';
+    features: Feature<Polygon>[];
+} {
+    // タイルの境界を計算
+    const minLng = (x / Math.pow(2, z)) * 360 - 180;
+    const maxLng = ((x + 1) / Math.pow(2, z)) * 360 - 180;
+    const minLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / Math.pow(2, z)))) * (180 / Math.PI);
+    const maxLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + 1)) / Math.pow(2, z)))) * (180 / Math.PI);
 
+    // タイルの境界をGeoJSONのPolygonとして返す
     return {
-        type: "Feature",
-        properties: {},
-        geometry: {
-            type: "Polygon",
-            coordinates: [[
-                [west, south],  // 左下
-                [east, south],  // 右下
-                [east, north],  // 右上
-                [west, north],  // 左上
-                [west, south]   // 左下（閉じる）
-            ]]
-        }
+        type: 'FeatureCollection',
+        features: [{
+            type: 'Feature',
+            properties: {
+                z,
+                x,
+                y,
+            },
+            geometry: {
+                type: 'Polygon',
+                coordinates: [[
+                    [minLng, minLat],
+                    [maxLng, minLat],
+                    [maxLng, maxLat],
+                    [minLng, maxLat],
+                    [minLng, minLat],
+                ]],
+            },
+        }],
     };
-}; 
+} 
