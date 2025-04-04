@@ -77,7 +77,9 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                 const maxLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + 1)) / Math.pow(2, z)))) * (180 / Math.PI);
 
                 const query = `
-                  SELECT ST_AsGeoJSON(geom) AS geojson
+                  SELECT ST_AsGeoJSON(
+                    ST_Transform(geom, 'EPSG:4326', 'EPSG:3857', always_xy := true)
+                  ) AS geojson
                   FROM uc14
                   WHERE ST_Intersects(
                     geom,
