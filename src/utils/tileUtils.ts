@@ -131,9 +131,11 @@ export async function geojsonToRaster(features: Feature<Geometry, GeoJsonPropert
                     const path = new Path2D();
                     ring.forEach((coord, index) => {
                         const position = coord as Position;
+                        // 緯度経度をWebメルカトル座標に変換
+                        const [mercX, mercY] = lngLatToMercator(position[0], position[1]);
                         // Webメルカトル座標をピクセル座標に変換（Y座標を反転）
-                        const xPixel = ((position[0] - minX) / (maxX - minX)) * 256;
-                        const yPixel = 256 - ((position[1] - minY) / (maxY - minY)) * 256;
+                        const xPixel = ((mercX - minX) / (maxX - minX)) * 256;
+                        const yPixel = 256 - ((mercY - minY) / (maxY - minY)) * 256;
                         if (index === 0) {
                             path.moveTo(xPixel, yPixel);
                         } else {
