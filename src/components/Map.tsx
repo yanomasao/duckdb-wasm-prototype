@@ -224,6 +224,90 @@ const MapComponent: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                 mapInstance.on('load', () => {
                     console.log('マップ読み込み完了');
                     setIsLoading(false);
+
+                    // ポップアップの作成
+                    const popup = new maplibregl.Popup({
+                        closeButton: true,
+                        closeOnClick: true,
+                        offset: 25,
+                    });
+
+                    // クリックイベントの共通処理
+                    const handleFeatureClick = (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
+                        if (!e.features?.[0]) return;
+
+                        const feature = e.features[0];
+                        const geometry = feature.geometry as GeoJSON.Geometry;
+                        const properties = feature.properties;
+
+                        // クリック位置の座標を取得
+                        const coordinates = e.lngLat;
+
+                        // ジオメトリタイプに応じた情報を取得
+                        let geometryInfo = '';
+                        if (geometry.type === 'Point') {
+                            const point = geometry as GeoJSON.Point;
+                            geometryInfo = `
+                                <p>緯度: ${point.coordinates[1].toFixed(6)}</p>
+                                <p>経度: ${point.coordinates[0].toFixed(6)}</p>
+                            `;
+                        } else if (geometry.type === 'LineString') {
+                            const line = geometry as GeoJSON.LineString;
+                            geometryInfo = `
+                                <p>クリック位置:</p>
+                                <p>緯度: ${coordinates.lat.toFixed(6)}</p>
+                                <p>経度: ${coordinates.lng.toFixed(6)}</p>
+                                <p>頂点数: ${line.coordinates.length}</p>
+                            `;
+                        } else if (geometry.type === 'Polygon') {
+                            const polygon = geometry as GeoJSON.Polygon;
+                            const totalVertices = polygon.coordinates.reduce((sum, ring) => sum + ring.length, 0);
+                            geometryInfo = `
+                                <p>クリック位置:</p>
+                                <p>緯度: ${coordinates.lat.toFixed(6)}</p>
+                                <p>経度: ${coordinates.lng.toFixed(6)}</p>
+                                <p>リング数: ${polygon.coordinates.length}</p>
+                                <p>頂点数: ${totalVertices}</p>
+                            `;
+                        }
+
+                        // ポップアップの内容を設定
+                        const content = `
+                            <div style="padding: 10px;">
+                                <h3>${geometry.type} 情報</h3>
+                                ${geometryInfo}
+                                <pre style="max-height: 200px; overflow: auto;">
+                                    ${JSON.stringify(properties, null, 2)}
+                                </pre>
+                            </div>
+                        `;
+
+                        // ポップアップを表示
+                        popup.setLngLat(coordinates).setHTML(content).addTo(mapInstance);
+                    };
+
+                    // 各レイヤーのクリックイベントを追加
+                    mapInstance.on('click', 'duckdb-points', handleFeatureClick);
+                    mapInstance.on('click', 'duckdb-lines', handleFeatureClick);
+                    mapInstance.on('click', 'duckdb-polygons', handleFeatureClick);
+
+                    // ホバー効果の共通処理
+                    const handleMouseEnter = () => {
+                        mapInstance.getCanvas().style.cursor = 'pointer';
+                    };
+
+                    const handleMouseLeave = () => {
+                        mapInstance.getCanvas().style.cursor = '';
+                    };
+
+                    // 各レイヤーのホバー効果を追加
+                    mapInstance.on('mouseenter', 'duckdb-points', handleMouseEnter);
+                    mapInstance.on('mouseenter', 'duckdb-lines', handleMouseEnter);
+                    mapInstance.on('mouseenter', 'duckdb-polygons', handleMouseEnter);
+
+                    mapInstance.on('mouseleave', 'duckdb-points', handleMouseLeave);
+                    mapInstance.on('mouseleave', 'duckdb-lines', handleMouseLeave);
+                    mapInstance.on('mouseleave', 'duckdb-polygons', handleMouseLeave);
                 });
 
                 // クリーンアップ関数
