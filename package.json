@@ -16,7 +16,7 @@
     "maplibre-gl": "^5.3.0",
     "maplibre-gl-opacity": "^1.8.0",
     "pngjs": "^7.0.0",
-    "protobufjs": "^7.4.0",
+    "protobufjs": "^6.11.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
