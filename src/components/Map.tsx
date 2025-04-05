@@ -79,7 +79,7 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                                 const query = `
                                     SELECT ST_AsGeoJSON(ST_Simplify(geom, 0.0000001)) AS geojson
                                     -- SELECT ST_AsGeoJSON(ST_Intersection(ST_Simplify(geom, 0.0001), ST_Simplify(ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat}), 0.0001))) AS geojson
-                                    FROM uc14_ais_traffic
+                                    FROM tokyo
                                     WHERE ST_Intersects(
                                         geom,
                                         ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
