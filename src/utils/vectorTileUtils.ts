@@ -1,5 +1,6 @@
 // @ts-nocheck
-import { Feature, Geometry } from 'geojson';
+import { Feature, GeoJsonProperties, Geometry } from 'geojson';
+import geojsonvt from 'geojson-vt';
 import vtpbf from 'vt-pbf';
 
 interface VectorTileFeature {
@@ -39,114 +40,34 @@ function transformCoordinates(geometry: Geometry, z: number, x: number, y: numbe
 }
 
 export function geojsonToVectorTile(
-    features: Feature<Geometry>[],
+    features: Feature<Geometry, GeoJsonProperties>[],
     z: number,
     x: number,
     y: number
 ): Uint8Array {
-    // レイヤーの初期化
-    const layer = {
-        version: 2,
-        name: 'features',
-        extent: 4096,
-        features: []
-    };
-
-    features.forEach((feature, index) => {
-        const geometry = feature.geometry;
-        const properties = feature.properties || {};
-
-        if (geometry.type === 'Point') {
-            const coordinates = geometry.coordinates;
-            const [lng, lat] = coordinates;
-
-            // タイル座標系への変換
-            const n = Math.pow(2, z);
-            const tileX = ((lng + 180) / 360) * n;
-            const tileY = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n;
-
-            // タイル内の相対座標に変換
-            const xRelative = (tileX - x) * 4096;
-            const yRelative = (tileY - y) * 4096;
-
-            const commands = [
-                9, // MoveTo command (1) with 1 point
-                xRelative,
-                yRelative
-            ];
-
-            layer.features.push({
-                id: index,
-                type: 1, // Point
-                properties: properties,
-                geometry: commands
-            });
-        } else if (geometry.type === 'LineString') {
-            const coordinates = geometry.coordinates;
-            const commands = [];
-            let first = true;
-
-            coordinates.forEach(([lng, lat]) => {
-                const n = Math.pow(2, z);
-                const tileX = ((lng + 180) / 360) * n;
-                const tileY = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n;
-
-                const xRelative = (tileX - x) * 4096;
-                const yRelative = (tileY - y) * 4096;
-
-                if (first) {
-                    commands.push(9, xRelative, yRelative); // MoveTo
-                    first = false;
-                } else {
-                    commands.push(8, xRelative, yRelative); // LineTo
-                }
-            });
-
-            layer.features.push({
-                id: index,
-                type: 2, // LineString
-                properties: properties,
-                geometry: commands
-            });
-        } else if (geometry.type === 'Polygon') {
-            const coordinates = geometry.coordinates[0]; // 外側のリングのみを処理
-            const commands = [];
-            let first = true;
-
-            coordinates.forEach(([lng, lat]) => {
-                const n = Math.pow(2, z);
-                const tileX = ((lng + 180) / 360) * n;
-                const tileY = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n;
-
-                const xRelative = (tileX - x) * 4096;
-                const yRelative = (tileY - y) * 4096;
-
-                if (first) {
-                    commands.push(9, xRelative, yRelative); // MoveTo
-                    first = false;
-                } else {
-                    commands.push(8, xRelative, yRelative); // LineTo
-                }
-            });
-
-            // ポリゴンを閉じる
-            commands.push(7); // ClosePath
-
-            layer.features.push({
-                id: index,
-                type: 3, // Polygon
-                properties: properties,
-                geometry: commands
-            });
-        }
+    // geojson-vtでGeoJSONをベクトルタイルに変換
+    const tileIndex = geojsonvt({
+        type: 'FeatureCollection',
+        features: features
+    }, {
+        generateId: true,
+        indexMaxZoom: z,
+        maxZoom: z,
+        buffer: 0,
+        tolerance: 0,
+        extent: 4096
     });
 
-    // ベクタータイルを生成
-    const vectorTile = {
-        [layer.name]: layer
-    };
+    // 指定されたタイルを取得
+    const tile = tileIndex.getTile(z, x, y);
+    if (!tile) {
+        console.log('No tile found for coordinates:', { z, x, y });
+        return new Uint8Array();
+    }
 
-    return vtpbf.fromGeojsonVt(vectorTile);
+    // vt-pbfでベクトルタイルをバイナリに変換
+    // source-layer名を"v"として設定
+    return vtpbf.fromGeojsonVt({ "v": tile });
 }
 
 function writeFeature(pbf: Pbf, feature: any) {

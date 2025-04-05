@@ -82,7 +82,7 @@ const MapComponent: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
 
                         const query = `
                             SELECT ST_AsGeoJSON(geom) AS geojson
-                            FROM uc14_ship_accident
+                            FROM tokyo
                             WHERE ST_Intersects(
                                 geom,
                                 ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
@@ -99,6 +99,8 @@ const MapComponent: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                         }
 
                         const rows = result.toArray();
+                        console.log('Raw data:', rows);
+
                         const features = rows
                             .map((row, index) => {
                                 try {
@@ -107,6 +109,7 @@ const MapComponent: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                                         return null;
                                     }
                                     const geometry = JSON.parse(row.geojson) as Geometry;
+                                    console.log(`Parsed geometry ${index}:`, geometry);
                                     return {
                                         type: 'Feature' as const,
                                         geometry: geometry,
@@ -121,12 +124,17 @@ const MapComponent: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                             })
                             .filter((feature): feature is Feature<Geometry, GeoJsonProperties> => feature !== null);
 
+                        console.log('Processed features:', features);
+
                         if (features.length === 0) {
                             console.log('No valid features found');
                             return { data: new Uint8Array() };
                         }
 
+                        console.log('Generating vector tile...');
                         const vectorTile = geojsonToVectorTile(features, z, x, y);
+                        console.log('Vector tile generated, size:', vectorTile.length);
+
                         // キャッシュに保存
                         tileCache.current.set(cacheKey, vectorTile);
                         return { data: vectorTile };
@@ -196,14 +204,13 @@ const MapComponent: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                             {
                                 id: 'duckdb-points',
                                 source: 'duckdb-vector',
-                                'source-layer': 'features',
+                                'source-layer': 'v',
                                 type: 'circle',
                                 paint: {
-                                    'circle-radius': 8,
-                                    'circle-color': '#FF0000',
-                                    'circle-opacity': 0.8,
-                                    'circle-stroke-width': 2,
-                                    'circle-stroke-color': '#FFFFFF',
+                                    'circle-radius': 6,
+                                    'circle-color': '#ff0000',
+                                    'circle-stroke-width': 1,
+                                    'circle-stroke-color': '#ffffff',
                                 },
                                 filter: ['==', '$type', 'Point'],
                                 minzoom: 0,
