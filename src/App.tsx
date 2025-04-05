@@ -1,7 +1,7 @@
 import { Table } from 'apache-arrow';
 import { useState } from 'react';
 import './App.css';
-import Map from './components/Map';
+import MapComponent from './components/Map';
 import { useDuckDB } from './hooks/useDuckDB';
 
 function App() {
@@ -196,7 +196,7 @@ function App() {
                     </div>
                 )}
             </div>
-            {db && <Map db={db} />}
+            {db && <MapComponent db={db} />}
         </>
     );
 }

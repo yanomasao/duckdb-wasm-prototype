@@ -2,12 +2,22 @@ import { AsyncDuckDB } from '@duckdb/duckdb-wasm';
 import { Feature, GeoJsonProperties, Geometry } from 'geojson';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { geojsonToVectorTile } from '../utils/vectorTileUtils';
 
-const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
+interface DuckDBConnection {
+    query: (sql: string) => Promise<{
+        numRows: number;
+        toArray: () => Array<{ geojson: string }>;
+    }>;
+    close: () => Promise<void>;
+}
+
+const MapComponent: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
     const [mapError, setMapError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
+    const connectionRef = useRef<DuckDBConnection | null>(null);
+    const tileCache = useRef<Map<string, Uint8Array>>(new Map());
 
     useEffect(() => {
         console.log('マップ初期化開始');
@@ -23,26 +33,21 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
         // DuckDBの接続を確認
         const initMap = async () => {
             try {
-                const conn = await db.connect();
-                if (!conn) {
+                // 接続を保持
+                connectionRef.current = await db.connect();
+                if (!connectionRef.current) {
                     console.error('Failed to connect to DuckDB');
                     setMapError('DuckDBへの接続に失敗しました');
                     return;
                 }
-                conn.close();
 
                 // Add vector protocol handler
-                maplibregl.addProtocol('duckdb-vector', async (params, abortController) => {
+                maplibregl.addProtocol('duckdb-vector', async params => {
                     console.log('Protocol handler called with URL:', params.url);
 
                     // URLをデコード
                     const decodedUrl = decodeURIComponent(params.url);
                     console.log('Decoded URL:', decodedUrl);
-
-                    if (decodedUrl === 'duckdb-vector://{z}/{x}/{y}.pbf') {
-                        console.log('Template URL detected, returning empty data');
-                        return { data: new Uint8Array() };
-                    }
 
                     // タイルパスの解析
                     const match = decodedUrl.match(/duckdb-vector:\/\/(\d+)\/(\d+)\/(\d+)\.pbf$/);
@@ -52,185 +57,181 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                     }
 
                     const [z, x, y] = match.slice(1).map(Number);
+                    const cacheKey = `${z}/${x}/${y}`;
+
+                    // キャッシュをチェック
+                    if (tileCache.current.has(cacheKey)) {
+                        console.log('Using cached tile:', cacheKey);
+                        return { data: tileCache.current.get(cacheKey) };
+                    }
+
                     console.log(`Processing tile: z: ${z}, x: ${x}, y: ${y}`);
 
-                    return new Promise((resolve, reject) => {
-                        const processTile = async () => {
-                            try {
-                                const conn = await db.connect();
-                                if (!conn) {
-                                    console.warn('DuckDB not ready');
-                                    reject(new Error('DB not ready'));
-                                    return;
-                                }
+                    try {
+                        if (!connectionRef.current) {
+                            throw new Error('Database connection is not available');
+                        }
 
-                                const minLng = (x / Math.pow(2, z)) * 360 - 180;
-                                const maxLng = ((x + 1) / Math.pow(2, z)) * 360 - 180;
-                                const minLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / Math.pow(2, z)))) * (180 / Math.PI);
-                                const maxLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + 1)) / Math.pow(2, z)))) * (180 / Math.PI);
+                        const n = Math.pow(2, z);
+                        const minLng = (x / n) * 360 - 180;
+                        const maxLng = ((x + 1) / n) * 360 - 180;
+                        const minLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n))) * (180 / Math.PI);
+                        const maxLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + 1)) / n))) * (180 / Math.PI);
 
-                                const query = `
-                                    SELECT ST_AsGeoJSON(geom) AS geojson
-                                    FROM tokyo
-                                    WHERE ST_Intersects(
-                                        geom,
-                                        ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
-                                    )
-                                `;
+                        console.log(`Tile bounds: minLng=${minLng}, maxLng=${maxLng}, minLat=${minLat}, maxLat=${maxLat}`);
 
-                                console.log('Executing query:', query);
-                                const result = await conn.query(query);
+                        const query = `
+                            SELECT ST_AsGeoJSON(geom) AS geojson
+                            FROM uc14_ship_accident
+                            WHERE ST_Intersects(
+                                geom,
+                                ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
+                            )
+                        `;
 
-                                if (result.numRows === 0) {
-                                    console.log('No data found for this tile');
-                                    resolve({ data: new Uint8Array() });
-                                    return;
-                                }
+                        console.log('Executing query:', query);
+                        const result = await connectionRef.current.query(query);
+                        console.log(`Query returned ${result.numRows} rows`);
 
-                                const rows = result.toArray();
-                                console.log('Raw rows:', rows);
+                        if (result.numRows === 0) {
+                            console.log('No data found for this tile');
+                            return { data: new Uint8Array() };
+                        }
 
-                                const features = rows
-                                    .map((row, index) => {
-                                        try {
-                                            if (!row.geojson) {
-                                                console.warn('Empty geojson for row:', row);
-                                                return null;
-                                            }
-                                            console.log('Raw geojson string:', row.geojson);
-                                            const geometry = JSON.parse(row.geojson) as Geometry;
-                                            console.log('Parsed geometry:', geometry);
-                                            return {
-                                                type: 'Feature' as const,
-                                                geometry: geometry,
-                                                properties: {
-                                                    id: index,
-                                                },
-                                            } as Feature<Geometry, GeoJsonProperties>;
-                                        } catch (error) {
-                                            console.error('Error parsing GeoJSON:', error);
-                                            console.error('Problematic row:', row);
-                                            return null;
-                                        }
-                                    })
-                                    .filter((feature): feature is Feature<Geometry, GeoJsonProperties> => feature !== null);
-
-                                if (features.length === 0) {
-                                    console.log('No valid features found');
-                                    resolve({ data: new Uint8Array() });
-                                    return;
-                                }
-
+                        const rows = result.toArray();
+                        const features = rows
+                            .map((row, index) => {
                                 try {
-                                    const vectorTile = geojsonToVectorTile(features, z, x, y);
-                                    resolve({ data: vectorTile });
+                                    if (!row.geojson) {
+                                        console.warn('Empty geojson for row:', row);
+                                        return null;
+                                    }
+                                    const geometry = JSON.parse(row.geojson) as Geometry;
+                                    return {
+                                        type: 'Feature' as const,
+                                        geometry: geometry,
+                                        properties: {
+                                            id: index,
+                                        },
+                                    } as Feature<Geometry, GeoJsonProperties>;
                                 } catch (error) {
-                                    console.error('Error converting to Vector Tile:', error);
-                                    resolve({ data: new Uint8Array() });
+                                    console.error('Error parsing GeoJSON:', error);
+                                    return null;
                                 }
-                            } catch (error) {
-                                console.error('Error:', error);
-                                reject(error);
-                            } finally {
-                                conn?.close();
-                            }
-                        };
+                            })
+                            .filter((feature): feature is Feature<Geometry, GeoJsonProperties> => feature !== null);
 
-                        processTile().catch(reject);
-                    });
+                        if (features.length === 0) {
+                            console.log('No valid features found');
+                            return { data: new Uint8Array() };
+                        }
+
+                        const vectorTile = geojsonToVectorTile(features, z, x, y);
+                        // キャッシュに保存
+                        tileCache.current.set(cacheKey, vectorTile);
+                        return { data: vectorTile };
+                    } catch (error) {
+                        console.error('Error processing tile:', error);
+                        return { data: new Uint8Array() };
+                    }
                 });
 
-                try {
-                    // マップの初期化
-                    const mapInstance = new maplibregl.Map({
-                        container: 'map',
-                        zoom: 5,
-                        center: [139.7, 35.7],
-                        style: {
-                            version: 8,
-                            glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
-                            sources: {
-                                osm: {
-                                    type: 'raster',
-                                    tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-                                    maxzoom: 19,
-                                    tileSize: 256,
-                                    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                                },
-                                'duckdb-vector': {
-                                    type: 'vector',
-                                    tiles: ['duckdb-vector://{z}/{x}/{y}.pbf'],
-                                    maxzoom: 19,
-                                    minzoom: 0,
-                                },
+                // マップの初期化
+                const mapInstance = new maplibregl.Map({
+                    container: 'map',
+                    zoom: 7,
+                    center: [139.7482, 35.6591], // 東京付近の座標
+                    style: {
+                        version: 8,
+                        glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
+                        sources: {
+                            osm: {
+                                type: 'raster',
+                                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                                maxzoom: 19,
+                                tileSize: 256,
+                                attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                             },
-                            layers: [
-                                {
-                                    id: 'osm-layer',
-                                    source: 'osm',
-                                    type: 'raster',
-                                },
-                                {
-                                    id: 'duckdb-layer',
-                                    source: 'duckdb-vector',
-                                    'source-layer': 'features',
-                                    type: 'fill',
-                                    paint: {
-                                        'fill-color': '#FF6600',
-                                        'fill-opacity': 0.2,
-                                    },
-                                },
-                                {
-                                    id: 'duckdb-markers',
-                                    source: 'duckdb-vector',
-                                    'source-layer': 'features',
-                                    type: 'symbol',
-                                    paint: {
-                                        'text-color': '#000000',
-                                    },
-                                    layout: {
-                                        'text-field': ['get', 'name'],
-                                        'text-size': 12,
-                                        'text-offset': [0, 1],
-                                        'text-anchor': 'top',
-                                    },
-                                },
-                            ],
+                            'duckdb-vector': {
+                                type: 'vector',
+                                tiles: ['duckdb-vector://{z}/{x}/{y}.pbf'],
+                                minzoom: 0,
+                                maxzoom: 24,
+                            },
                         },
-                    });
+                        layers: [
+                            {
+                                id: 'osm-layer',
+                                source: 'osm',
+                                type: 'raster',
+                            },
+                            {
+                                id: 'duckdb-polygons',
+                                source: 'duckdb-vector',
+                                'source-layer': 'features',
+                                type: 'fill',
+                                paint: {
+                                    'fill-color': '#FF6600',
+                                    'fill-opacity': 0.2,
+                                    'fill-outline-color': '#FF6600',
+                                },
+                                filter: ['==', '$type', 'Polygon'],
+                                minzoom: 0,
+                                maxzoom: 24,
+                            },
+                            {
+                                id: 'duckdb-lines',
+                                source: 'duckdb-vector',
+                                'source-layer': 'features',
+                                type: 'line',
+                                paint: {
+                                    'line-color': '#FF6600',
+                                    'line-width': 2,
+                                    'line-opacity': 0.8,
+                                },
+                                filter: ['==', '$type', 'LineString'],
+                                minzoom: 0,
+                                maxzoom: 24,
+                            },
+                            {
+                                id: 'duckdb-points',
+                                source: 'duckdb-vector',
+                                'source-layer': 'features',
+                                type: 'circle',
+                                paint: {
+                                    'circle-radius': 8,
+                                    'circle-color': '#FF0000',
+                                    'circle-opacity': 0.8,
+                                    'circle-stroke-width': 2,
+                                    'circle-stroke-color': '#FFFFFF',
+                                },
+                                filter: ['==', '$type', 'Point'],
+                                minzoom: 0,
+                                maxzoom: 24,
+                            },
+                        ],
+                    },
+                });
 
-                    // マップの読み込み完了時の処理
-                    mapInstance.on('load', () => {
-                        console.log('マップ読み込み完了');
-                        setIsLoading(false);
-                    });
-
-                    // マップのエラー処理
-                    mapInstance.on('error', e => {
-                        console.error('マップエラー:', e);
-                        setMapError(`マップエラー: ${e.error?.message || '不明なエラー'}`);
-                    });
-
-                    // マップのスタイル読み込み完了時の処理
-                    mapInstance.on('style.load', () => {
-                        console.log('マップスタイル読み込み完了');
-                    });
-
-                    // クリーンアップ関数
-                    return () => {
-                        if (mapInstance) {
-                            mapInstance.remove();
-                        }
-                    };
-                } catch (error) {
-                    console.error('マップ初期化エラー:', error);
-                    setMapError(`マップ初期化エラー: ${error instanceof Error ? error.message : String(error)}`);
+                // マップの読み込み完了時の処理
+                mapInstance.on('load', () => {
+                    console.log('マップ読み込み完了');
                     setIsLoading(false);
-                }
+                });
+
+                // クリーンアップ関数
+                return () => {
+                    if (mapInstance) {
+                        mapInstance.remove();
+                    }
+                    if (connectionRef.current) {
+                        connectionRef.current.close();
+                    }
+                };
             } catch (error) {
-                console.error('Error connecting to DuckDB:', error);
-                setMapError(`DuckDB接続エラー: ${error instanceof Error ? error.message : String(error)}`);
-                return;
+                console.error('Error initializing map:', error);
+                setMapError(`マップ初期化エラー: ${error instanceof Error ? error.message : String(error)}`);
+                setIsLoading(false);
             }
         };
 
@@ -285,4 +286,4 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
     );
 };
 
-export default Map;
+export default MapComponent;

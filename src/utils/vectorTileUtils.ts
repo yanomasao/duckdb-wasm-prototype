@@ -1,65 +1,11 @@
 // @ts-nocheck
-import { VectorTile } from '@mapbox/vector-tile';
 import { Feature, Geometry } from 'geojson';
-import Pbf from 'pbf';
+import vtpbf from 'vt-pbf';
 
-interface VectorTileLayer {
-    name: string;
-    version: number;
-    extent: number;
-    features: {
-        id: number;
-        type: number;
-        geometry: number[];
-        tags: any[];
-    }[];
-}
-
-export function geojsonToVectorTile(features: Feature<Geometry>[], z: number, x: number, y: number): Uint8Array {
-    // ベクタータイルの作成
-    const layers = {
-        features: {
-            name: 'features',
-            version: 2,
-            extent: 4096,
-            features: features.map((feature, index) => {
-                // ジオメトリタイプの変換
-                let geomType: number;
-                switch (feature.geometry.type) {
-                    case 'Point':
-                        geomType = 1; // POINT
-                        break;
-                    case 'LineString':
-                        geomType = 2; // LINESTRING
-                        break;
-                    case 'Polygon':
-                        geomType = 3; // POLYGON
-                        break;
-                    default:
-                        throw new Error(`Unsupported geometry type: ${feature.geometry.type}`);
-                }
-
-                // 座標の変換（Webメルカトルからベクタータイル座標系へ）
-                const coordinates = transformCoordinates(feature.geometry, z, x, y);
-
-                return {
-                    id: index + 1,
-                    type: geomType,
-                    geometry: coordinates,
-                    tags: Object.entries(feature.properties || {}).flatMap(([key, value]) => [
-                        key,
-                        value
-                    ])
-                };
-            })
-        }
-    };
-
-    // ベクタータイルをバイナリデータにエンコード
-    const pbf = new Pbf();
-    const vectorTile = new VectorTile(pbf);
-    vectorTile.layers = layers;
-    return pbf.finish();
+interface VectorTileFeature {
+    type: number;
+    geometry: number[][];
+    properties: Record<string, unknown>;
 }
 
 function transformCoordinates(geometry: Geometry, z: number, x: number, y: number): number[] {
@@ -90,4 +36,141 @@ function transformCoordinates(geometry: Geometry, z: number, x: number, y: numbe
         default:
             throw new Error(`Unsupported geometry type: ${geometry.type}`);
     }
+}
+
+export function geojsonToVectorTile(
+    features: Feature<Geometry>[],
+    z: number,
+    x: number,
+    y: number
+): Uint8Array {
+    // レイヤーの初期化
+    const layer = {
+        version: 2,
+        name: 'features',
+        extent: 4096,
+        features: []
+    };
+
+    features.forEach((feature, index) => {
+        const geometry = feature.geometry;
+        const properties = feature.properties || {};
+
+        if (geometry.type === 'Point') {
+            const coordinates = geometry.coordinates;
+            const [lng, lat] = coordinates;
+
+            // タイル座標系への変換
+            const n = Math.pow(2, z);
+            const tileX = ((lng + 180) / 360) * n;
+            const tileY = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n;
+
+            // タイル内の相対座標に変換
+            const xRelative = (tileX - x) * 4096;
+            const yRelative = (tileY - y) * 4096;
+
+            const commands = [
+                9, // MoveTo command (1) with 1 point
+                xRelative,
+                yRelative
+            ];
+
+            layer.features.push({
+                id: index,
+                type: 1, // Point
+                properties: properties,
+                geometry: commands
+            });
+        } else if (geometry.type === 'LineString') {
+            const coordinates = geometry.coordinates;
+            const commands = [];
+            let first = true;
+
+            coordinates.forEach(([lng, lat]) => {
+                const n = Math.pow(2, z);
+                const tileX = ((lng + 180) / 360) * n;
+                const tileY = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n;
+
+                const xRelative = (tileX - x) * 4096;
+                const yRelative = (tileY - y) * 4096;
+
+                if (first) {
+                    commands.push(9, xRelative, yRelative); // MoveTo
+                    first = false;
+                } else {
+                    commands.push(8, xRelative, yRelative); // LineTo
+                }
+            });
+
+            layer.features.push({
+                id: index,
+                type: 2, // LineString
+                properties: properties,
+                geometry: commands
+            });
+        } else if (geometry.type === 'Polygon') {
+            const coordinates = geometry.coordinates[0]; // 外側のリングのみを処理
+            const commands = [];
+            let first = true;
+
+            coordinates.forEach(([lng, lat]) => {
+                const n = Math.pow(2, z);
+                const tileX = ((lng + 180) / 360) * n;
+                const tileY = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n;
+
+                const xRelative = (tileX - x) * 4096;
+                const yRelative = (tileY - y) * 4096;
+
+                if (first) {
+                    commands.push(9, xRelative, yRelative); // MoveTo
+                    first = false;
+                } else {
+                    commands.push(8, xRelative, yRelative); // LineTo
+                }
+            });
+
+            // ポリゴンを閉じる
+            commands.push(7); // ClosePath
+
+            layer.features.push({
+                id: index,
+                type: 3, // Polygon
+                properties: properties,
+                geometry: commands
+            });
+        }
+    });
+
+    // ベクタータイルを生成
+    const vectorTile = {
+        [layer.name]: layer
+    };
+
+    return vtpbf.fromGeojsonVt(vectorTile);
+}
+
+function writeFeature(pbf: Pbf, feature: any) {
+    if (feature.id !== undefined) pbf.writeVarintField(1, feature.id);
+
+    const properties = feature.properties || {};
+    const keys = Object.keys(properties);
+    const values = Object.values(properties);
+
+    const tagged = [];
+    keys.forEach((key, i) => {
+        tagged.push(i); // key index
+        tagged.push(i); // value index
+    });
+
+    if (tagged.length) pbf.writePackedVarint(2, tagged);
+
+    if (feature.type !== undefined) pbf.writeVarintField(3, feature.type);
+    if (feature.geometry) pbf.writePackedVarint(4, feature.geometry);
+
+    keys.forEach(key => pbf.writeStringField(3, key));
+    values.forEach(value => {
+        if (typeof value === 'string') pbf.writeStringField(4, value);
+        else if (typeof value === 'boolean') pbf.writeBooleanField(7, value);
+        else if (typeof value === 'number') pbf.writeDoubleField(5, value);
+    });
 } 
