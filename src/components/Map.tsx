@@ -81,7 +81,7 @@ const MapComponent: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                         console.log(`Tile bounds: minLng=${minLng}, maxLng=${maxLng}, minLat=${minLat}, maxLat=${maxLat}`);
 
                         const query = `
-                            SELECT ST_AsGeoJSON(geom) AS geojson
+                            SELECT ST_AsGeoJSON(ST_Intersection(ST_Simplify(geom, 0.0001), ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat}))) AS geojson
                             FROM tokyo
                             WHERE ST_Intersects(
                                 geom,
@@ -176,12 +176,12 @@ const MapComponent: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                             {
                                 id: 'duckdb-polygons',
                                 source: 'duckdb-vector',
-                                'source-layer': 'features',
+                                'source-layer': 'v',
                                 type: 'fill',
                                 paint: {
-                                    'fill-color': '#FF6600',
-                                    'fill-opacity': 0.2,
-                                    'fill-outline-color': '#FF6600',
+                                    'fill-color': '#ff6600',
+                                    'fill-opacity': 0.5,
+                                    'fill-outline-color': '#ff6600',
                                 },
                                 filter: ['==', '$type', 'Polygon'],
                                 minzoom: 0,
@@ -190,10 +190,10 @@ const MapComponent: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                             {
                                 id: 'duckdb-lines',
                                 source: 'duckdb-vector',
-                                'source-layer': 'features',
+                                'source-layer': 'v',
                                 type: 'line',
                                 paint: {
-                                    'line-color': '#FF6600',
+                                    'line-color': '#ff6600',
                                     'line-width': 2,
                                     'line-opacity': 0.8,
                                 },
