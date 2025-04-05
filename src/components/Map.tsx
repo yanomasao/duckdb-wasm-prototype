@@ -3,7 +3,7 @@ import { Feature, GeoJsonProperties, Geometry } from 'geojson';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import React, { useEffect, useState } from 'react';
-import { geojsonToRaster } from '../utils/tileUtils';
+import { geojsonToVectorTile } from '../utils/vectorTileUtils';
 
 const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
     const [mapError, setMapError] = useState<string | null>(null);
@@ -31,21 +31,21 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                 }
                 conn.close();
 
-                // Add raster protocol handler
-                maplibregl.addProtocol('duckdb-raster', async (params, abortController) => {
+                // Add vector protocol handler
+                maplibregl.addProtocol('duckdb-vector', async (params, abortController) => {
                     console.log('Protocol handler called with URL:', params.url);
 
                     // URLをデコード
                     const decodedUrl = decodeURIComponent(params.url);
                     console.log('Decoded URL:', decodedUrl);
 
-                    if (decodedUrl === 'duckdb-raster://{z}/{x}/{y}.png') {
+                    if (decodedUrl === 'duckdb-vector://{z}/{x}/{y}.pbf') {
                         console.log('Template URL detected, returning empty data');
                         return { data: new Uint8Array() };
                     }
 
-                    // タイルパスの解析を改善
-                    const match = decodedUrl.match(/duckdb-raster:\/\/(\d+)\/(\d+)\/(\d+)\.png$/);
+                    // タイルパスの解析
+                    const match = decodedUrl.match(/duckdb-vector:\/\/(\d+)\/(\d+)\/(\d+)\.pbf$/);
                     if (!match) {
                         console.error('Invalid tile path format:', decodedUrl);
                         return { data: new Uint8Array() };
@@ -55,15 +55,8 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                     console.log(`Processing tile: z: ${z}, x: ${x}, y: ${y}`);
 
                     return new Promise((resolve, reject) => {
-                        // 中断された場合は処理を中止
-                        if (abortController?.signal?.aborted) {
-                            reject(new Error('Aborted'));
-                            return;
-                        }
-
                         const processTile = async () => {
                             try {
-                                // DuckDBの接続を試みる
                                 const conn = await db.connect();
                                 if (!conn) {
                                     console.warn('DuckDB not ready');
@@ -78,7 +71,7 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
 
                                 const query = `
                                     SELECT ST_AsGeoJSON(geom) AS geojson
-                                    FROM uc14_ship_accident
+                                    FROM tokyo
                                     WHERE ST_Intersects(
                                         geom,
                                         ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
@@ -96,6 +89,7 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
 
                                 const rows = result.toArray();
                                 console.log('Raw rows:', rows);
+
                                 const features = rows
                                     .map((row, index) => {
                                         try {
@@ -128,10 +122,10 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                                 }
 
                                 try {
-                                    const rasterData = await geojsonToRaster(features, z, x, y);
-                                    resolve({ data: rasterData });
+                                    const vectorTile = geojsonToVectorTile(features, z, x, y);
+                                    resolve({ data: vectorTile });
                                 } catch (error) {
-                                    console.error('Error converting to Raster:', error);
+                                    console.error('Error converting to Vector Tile:', error);
                                     resolve({ data: new Uint8Array() });
                                 }
                             } catch (error) {
@@ -154,6 +148,7 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                         center: [139.7, 35.7],
                         style: {
                             version: 8,
+                            glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
                             sources: {
                                 osm: {
                                     type: 'raster',
@@ -162,13 +157,11 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                                     tileSize: 256,
                                     attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                                 },
-                                'duckdb-raster': {
-                                    type: 'raster',
-                                    tiles: ['duckdb-raster://{z}/{x}/{y}.png'],
+                                'duckdb-vector': {
+                                    type: 'vector',
+                                    tiles: ['duckdb-vector://{z}/{x}/{y}.pbf'],
                                     maxzoom: 19,
-                                    tileSize: 256,
                                     minzoom: 0,
-                                    scheme: 'xyz',
                                 },
                             },
                             layers: [
@@ -179,11 +172,27 @@ const Map: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                                 },
                                 {
                                     id: 'duckdb-layer',
-                                    source: 'duckdb-raster',
-                                    type: 'raster',
+                                    source: 'duckdb-vector',
+                                    'source-layer': 'features',
+                                    type: 'fill',
                                     paint: {
-                                        'raster-opacity': 0.5,
-                                        'raster-fade-duration': 0,
+                                        'fill-color': '#FF6600',
+                                        'fill-opacity': 0.2,
+                                    },
+                                },
+                                {
+                                    id: 'duckdb-markers',
+                                    source: 'duckdb-vector',
+                                    'source-layer': 'features',
+                                    type: 'symbol',
+                                    paint: {
+                                        'text-color': '#000000',
+                                    },
+                                    layout: {
+                                        'text-field': ['get', 'name'],
+                                        'text-size': 12,
+                                        'text-offset': [0, 1],
+                                        'text-anchor': 'top',
                                     },
                                 },
                             ],
