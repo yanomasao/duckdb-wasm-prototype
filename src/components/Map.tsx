@@ -81,7 +81,11 @@ const MapComponent: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
                         console.log(`Tile bounds: minLng=${minLng}, maxLng=${maxLng}, minLat=${minLat}, maxLat=${maxLat}`);
 
                         const query = `
-                            SELECT ST_AsGeoJSON(ST_Intersection(ST_Simplify(geom, 0.0001), ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat}))) AS geojson
+                            SELECT 
+                                ST_AsGeoJSON(
+                                    -- ST_Intersection(ST_Simplify(geom, 0.0001), ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat}))
+                                    geom
+                                ) AS geojson
                             FROM tokyo
                             WHERE ST_Intersects(
                                 geom,
