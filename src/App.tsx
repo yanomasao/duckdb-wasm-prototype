@@ -6,7 +6,7 @@ import { useDuckDB } from './hooks/useDuckDB';
 
 function App() {
     const { db, error: dbError } = useDuckDB();
-    const [tables, setTables] = useState<string[]>([]);
+    const [tables, setTables] = useState<{ name: string; count: number }[]>([]);
     const [showTableList, setShowTableList] = useState(false);
     const [queryResult, setQueryResult] = useState<Table | null>(null);
     const [queryError, setQueryError] = useState<string | null>(null);
@@ -24,7 +24,19 @@ function App() {
             for (let i = 0; i < result.numRows; i++) {
                 tableNames.push(result.getChildAt(0)?.get(i) as string);
             }
-            setTables(tableNames);
+
+            // 各テーブルの行数を取得
+            const tablesWithCount = await Promise.all(
+                tableNames.map(async tableName => {
+                    const countResult = await conn.query(`SELECT COUNT(*) as count FROM ${tableName}`);
+                    return {
+                        name: tableName,
+                        count: countResult.getChildAt(0)?.get(0) as number,
+                    };
+                })
+            );
+
+            setTables(tablesWithCount);
             await conn.close();
         } catch (err) {
             console.error('Error fetching tables:', err);
@@ -160,12 +172,15 @@ function App() {
                     <div className="table-list">
                         <h3>テーブル一覧</h3>
                         <ul>
-                            {tables.map(tableName => (
-                                <li key={tableName} className="table-item">
-                                    <span className="table-name">{tableName}</span>
+                            {tables.map(table => (
+                                <li key={table.name} className="table-item">
+                                    <div className="table-name-container">
+                                        <span className="table-name">{table.name}</span>
+                                        <span className="table-count">({table.count.toLocaleString()}行)</span>
+                                    </div>
                                     <div className="table-buttons">
-                                        <button onClick={() => handleShowTableData(tableName)}>一覧</button>
-                                        <button onClick={() => handleTableDelete(tableName)}>削除</button>
+                                        <button onClick={() => handleShowTableData(table.name)}>一覧</button>
+                                        <button onClick={() => handleTableDelete(table.name)}>削除</button>
                                     </div>
                                 </li>
                             ))}
