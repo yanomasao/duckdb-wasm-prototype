@@ -12,6 +12,29 @@ function App() {
     const [queryError, setQueryError] = useState<string | null>(null);
     const [file, setFile] = useState<File | null>(null);
     const [isCreatingTable, setIsCreatingTable] = useState(false);
+    const [tableColumns, setTableColumns] = useState<Record<string, { name: string; type: string }[]>>({});
+    const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
+
+    // テーブルのカラム情報を取得する関数
+    const fetchTableColumns = async (tableName: string) => {
+        if (!db) return;
+
+        try {
+            const conn = await db.connect();
+            const result = await conn.query(`DESCRIBE ${tableName};`);
+            const columns = result.toArray().map(row => ({
+                name: row.column_name,
+                type: row.column_type,
+            }));
+            setTableColumns(prev => ({
+                ...prev,
+                [tableName]: columns,
+            }));
+            await conn.close();
+        } catch (err) {
+            console.error('Error fetching table columns:', err);
+        }
+    };
 
     // テーブル一覧を取得する関数
     const fetchTables = async () => {
@@ -38,6 +61,11 @@ function App() {
 
             setTables(tablesWithCount);
             await conn.close();
+
+            // 各テーブルのカラム情報を取得
+            for (const table of tablesWithCount) {
+                await fetchTableColumns(table.name);
+            }
         } catch (err) {
             console.error('Error fetching tables:', err);
         }
@@ -156,6 +184,14 @@ function App() {
         }
     };
 
+    // テーブル名をクリックしたときの処理
+    const handleTableNameClick = (tableName: string) => {
+        setVisibleColumns(prev => ({
+            ...prev,
+            [tableName]: !prev[tableName],
+        }));
+    };
+
     return (
         <>
             <div className="card">
@@ -185,12 +221,41 @@ function App() {
                                         <label htmlFor={`table-${table.name}`}>
                                             <span className="table-name">{table.name}</span>
                                             <span className="table-count">({table.count.toLocaleString()}行)</span>
+                                            <button
+                                                className="column-button"
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    handleTableNameClick(table.name);
+                                                }}
+                                            >
+                                                カラム
+                                            </button>
                                         </label>
+                                        <div className="table-buttons">
+                                            <button onClick={() => handleShowTableData(table.name)}>一覧</button>
+                                            <button onClick={() => handleTableDelete(table.name)}>削除</button>
+                                        </div>
                                     </div>
-                                    <div className="table-buttons">
-                                        <button onClick={() => handleShowTableData(table.name)}>一覧</button>
-                                        <button onClick={() => handleTableDelete(table.name)}>削除</button>
-                                    </div>
+                                    {tableColumns[table.name] && visibleColumns[table.name] && (
+                                        <div className="table-columns">
+                                            <table>
+                                                <thead>
+                                                    <tr>
+                                                        <th>カラム名</th>
+                                                        <th>型</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {tableColumns[table.name].map(column => (
+                                                        <tr key={column.name}>
+                                                            <td>{column.name}</td>
+                                                            <td>{column.type}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
                                 </li>
                             ))}
                         </ul>
