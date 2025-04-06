@@ -189,11 +189,24 @@
     display: flex;
     align-items: center;
     flex: 1;
+    gap: 8px;
+}
+
+.table-name-container input[type="radio"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.table-name-container label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    flex: 1;
 }
 
 .table-name {
     font-weight: bold;
-    margin-right: 8px;
 }
 
 .table-count {

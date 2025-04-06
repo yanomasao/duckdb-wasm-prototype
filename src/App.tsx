@@ -7,6 +7,7 @@ import { useDuckDB } from './hooks/useDuckDB';
 function App() {
     const { db, error: dbError } = useDuckDB();
     const [tables, setTables] = useState<{ name: string; count: number }[]>([]);
+    const [selectedTable, setSelectedTable] = useState<string | null>(null);
     const [showTableList, setShowTableList] = useState(false);
     const [queryResult, setQueryResult] = useState<Table | null>(null);
     const [queryError, setQueryError] = useState<string | null>(null);
@@ -175,8 +176,17 @@ function App() {
                             {tables.map(table => (
                                 <li key={table.name} className="table-item">
                                     <div className="table-name-container">
-                                        <span className="table-name">{table.name}</span>
-                                        <span className="table-count">({table.count.toLocaleString()}行)</span>
+                                        <input
+                                            type="radio"
+                                            name="table-select"
+                                            id={`table-${table.name}`}
+                                            checked={selectedTable === table.name}
+                                            onChange={() => setSelectedTable(table.name)}
+                                        />
+                                        <label htmlFor={`table-${table.name}`}>
+                                            <span className="table-name">{table.name}</span>
+                                            <span className="table-count">({table.count.toLocaleString()}行)</span>
+                                        </label>
                                     </div>
                                     <div className="table-buttons">
                                         <button onClick={() => handleShowTableData(table.name)}>一覧</button>
@@ -211,7 +221,7 @@ function App() {
                     </div>
                 )}
             </div>
-            {db && <MapComponent db={db} />}
+            {db && <MapComponent db={db} selectedTable={selectedTable} />}
         </>
     );
 }

@@ -13,7 +13,12 @@ interface DuckDBConnection {
     close: () => Promise<void>;
 }
 
-const MapComponent: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
+interface MapProps {
+    db: AsyncDuckDB;
+    selectedTable: string | null;
+}
+
+const MapComponent: React.FC<MapProps> = ({ db, selectedTable }) => {
     const [mapError, setMapError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const connectionRef = useRef<DuckDBConnection | null>(null);
@@ -80,17 +85,30 @@ const MapComponent: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
 
                         console.log(`Tile bounds: minLng=${minLng}, maxLng=${maxLng}, minLat=${minLat}, maxLat=${maxLat}`);
 
+                        if (!selectedTable) {
+                            console.log('No table selected');
+                            return { data: new Uint8Array() };
+                        }
+
                         const query = `
-                            SELECT 
-                                ST_AsGeoJSON(
-                                    -- ST_Intersection(ST_Simplify(geom, 0.0001), ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat}))
-                                    geom
-                                ) AS geojson
-                            FROM tokyo
+                            SELECT ST_AsGeoJSON(
+                                -- ST_Intersection(
+                                --     ST_MakeValid(
+                                --         ST_Simplify(
+                                --             geom,
+                                --             ${0.0001 * Math.pow(2, 24 - z)}
+                                --         )
+                                --     ),
+                                --     ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
+                                -- )
+                                geom
+                            ) AS geojson
+                            FROM ${selectedTable}
                             WHERE ST_Intersects(
                                 geom,
                                 ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
                             )
+                            -- LIMIT 500
                         `;
 
                         console.log('Executing query:', query);
@@ -331,7 +349,7 @@ const MapComponent: React.FC<{ db: AsyncDuckDB }> = ({ db }) => {
         };
 
         initMap();
-    }, [db]);
+    }, [db, selectedTable]);
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
