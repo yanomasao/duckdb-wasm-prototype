@@ -1,4 +1,3 @@
-import { Table } from 'apache-arrow';
 import { useState } from 'react';
 import './App.css';
 import MapComponent from './components/Map';
@@ -9,7 +8,7 @@ function App() {
     const [tables, setTables] = useState<{ name: string; count: number }[]>([]);
     const [selectedTable, setSelectedTable] = useState<string | null>(null);
     const [showTableList, setShowTableList] = useState(false);
-    const [queryResult, setQueryResult] = useState<Table | null>(null);
+    const [queryResult, setQueryResult] = useState<Array<Record<string, any>> | null>(null);
     const [queryError, setQueryError] = useState<string | null>(null);
     const [file, setFile] = useState<File | null>(null);
     const [isCreatingTable, setIsCreatingTable] = useState(false);
