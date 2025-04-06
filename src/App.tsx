@@ -14,6 +14,7 @@ function App() {
     const [isCreatingTable, setIsCreatingTable] = useState(false);
     const [tableColumns, setTableColumns] = useState<Record<string, { name: string; type: string }[]>>({});
     const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
+    const [selectedColumns, setSelectedColumns] = useState<Record<string, string[]>>({});
 
     // テーブルのカラム情報を取得する関数
     const fetchTableColumns = async (tableName: string) => {
@@ -192,6 +193,17 @@ function App() {
         }));
     };
 
+    const handleColumnSelect = (tableName: string, columnName: string) => {
+        setSelectedColumns(prev => {
+            const currentColumns = prev[tableName] || [];
+            const newColumns = currentColumns.includes(columnName) ? currentColumns.filter(col => col !== columnName) : [...currentColumns, columnName];
+            return {
+                ...prev,
+                [tableName]: newColumns,
+            };
+        });
+    };
+
     return (
         <>
             <div className="card">
@@ -221,16 +233,16 @@ function App() {
                                         <label htmlFor={`table-${table.name}`}>
                                             <span className="table-name">{table.name}</span>
                                             <span className="table-count">({table.count.toLocaleString()}行)</span>
-                                            <button
-                                                className="column-button"
-                                                onClick={e => {
-                                                    e.stopPropagation();
-                                                    handleTableNameClick(table.name);
-                                                }}
-                                            >
-                                                カラム
-                                            </button>
                                         </label>
+                                        <button
+                                            className="column-button"
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                handleTableNameClick(table.name);
+                                            }}
+                                        >
+                                            カラム
+                                        </button>
                                         <div className="table-buttons">
                                             <button onClick={() => handleShowTableData(table.name)}>一覧</button>
                                             <button onClick={() => handleTableDelete(table.name)}>削除</button>
@@ -241,6 +253,7 @@ function App() {
                                             <table>
                                                 <thead>
                                                     <tr>
+                                                        <th>表示</th>
                                                         <th>カラム名</th>
                                                         <th>型</th>
                                                     </tr>
@@ -248,6 +261,13 @@ function App() {
                                                 <tbody>
                                                     {tableColumns[table.name].map(column => (
                                                         <tr key={column.name}>
+                                                            <td>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={(selectedColumns[table.name] || []).includes(column.name)}
+                                                                    onChange={() => handleColumnSelect(table.name, column.name)}
+                                                                />
+                                                            </td>
                                                             <td>{column.name}</td>
                                                             <td>{column.type}</td>
                                                         </tr>
@@ -285,7 +305,7 @@ function App() {
                     </div>
                 )}
             </div>
-            {db && <MapComponent db={db} selectedTable={selectedTable} />}
+            {db && <MapComponent db={db} selectedTable={selectedTable} selectedColumns={selectedColumns[selectedTable || ''] || []} />}
         </>
     );
 }

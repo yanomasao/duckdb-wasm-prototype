@@ -16,9 +16,10 @@ interface DuckDBConnection {
 interface MapProps {
     db: AsyncDuckDB;
     selectedTable: string | null;
+    selectedColumns: string[];
 }
 
-const MapComponent: React.FC<MapProps> = ({ db, selectedTable }) => {
+const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }) => {
     const [mapError, setMapError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const connectionRef = useRef<DuckDBConnection | null>(null);
@@ -90,25 +91,17 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable }) => {
                             return { data: new Uint8Array() };
                         }
 
+                        // 選択されたカラムを取得するSQLクエリを構築
+                        const columns = selectedColumns.length > 0 ? selectedColumns.join(', ') : '1 as dummy';
                         const query = `
-                            SELECT ST_AsGeoJSON(
-                                -- ST_Intersection(
-                                --     ST_MakeValid(
-                                --         ST_Simplify(
-                                --             geom,
-                                --             ${0.0001 * Math.pow(2, 24 - z)}
-                                --         )
-                                --     ),
-                                --     ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
-                                -- )
-                                geom
-                            ) AS geojson
+                            SELECT 
+                                ST_AsGeoJSON(geom) AS geojson,
+                                ${columns}
                             FROM ${selectedTable}
                             WHERE ST_Intersects(
                                 geom,
                                 ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
                             )
-                            -- LIMIT 500
                         `;
 
                         console.log('Executing query:', query);
@@ -120,7 +113,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable }) => {
                             return { data: new Uint8Array() };
                         }
 
-                        const rows = result.toArray();
+                        const rows = result.toArray() as Array<{ geojson: string } & Record<string, string | number | null>>;
                         console.log('Raw data:', rows);
 
                         const features = rows
@@ -132,12 +125,19 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable }) => {
                                     }
                                     const geometry = JSON.parse(row.geojson) as Geometry;
                                     console.log(`Parsed geometry ${index}:`, geometry);
+
+                                    // 選択されたカラムの値をプロパティとして追加
+                                    const properties: Record<string, string | number | null> = {};
+                                    selectedColumns.forEach(column => {
+                                        if (column in row) {
+                                            properties[column] = row[column];
+                                        }
+                                    });
+
                                     return {
                                         type: 'Feature' as const,
                                         geometry: geometry,
-                                        properties: {
-                                            id: index,
-                                        },
+                                        properties: properties,
                                     } as Feature<Geometry, GeoJsonProperties>;
                                 } catch (error) {
                                     console.error('Error parsing GeoJSON:', error);
@@ -293,14 +293,28 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable }) => {
                             `;
                         }
 
+                        // 選択されたカラムの情報を取得
+                        let columnInfo = '';
+                        if (selectedColumns.length > 0) {
+                            columnInfo = `
+                                <div style="margin-top: 10px;">
+                                    <h4>カラム情報</h4>
+                                    ${selectedColumns
+                                        .map(column => {
+                                            const value = properties?.[column];
+                                            return `<p>${column}: ${value !== undefined ? value : 'N/A'}</p>`;
+                                        })
+                                        .join('')}
+                                </div>
+                            `;
+                        }
+
                         // ポップアップの内容を設定
                         const content = `
                             <div style="padding: 10px;">
                                 <h3>${geometry.type} 情報</h3>
                                 ${geometryInfo}
-                                <pre style="max-height: 200px; overflow: auto;">
-                                    ${JSON.stringify(properties, null, 2)}
-                                </pre>
+                                ${columnInfo}
                             </div>
                         `;
 
@@ -349,7 +363,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable }) => {
         };
 
         initMap();
-    }, [db, selectedTable]);
+    }, [db, selectedTable, selectedColumns]);
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
