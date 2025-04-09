@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Feature, GeoJsonProperties, Geometry } from 'geojson';
 import geojsonvt from 'geojson-vt';
 import vtpbf from 'vt-pbf';
