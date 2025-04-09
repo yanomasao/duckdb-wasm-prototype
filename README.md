@@ -1,50 +1,17 @@
-# React + TypeScript + Vite
+# LINKS Veda BI DuckDB-wasmのPoC
+## 起動
+`npm install && npm run dev`
+chromeの拡張機能 OPFS Explorer （ https://chromewebstore.google.com/detail/opfs-explorer/acndjpgkpaclldomagafnognkcgjignd ）を入れておくと起動時にDuckDBのデータをOPFSに配置ていることが確認できます。
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## ファイルの登録
+- プロジェクトのpublicディレクトリにtmpディレクトリを作成し、geojson, parquetフォーマットのファイルを置きます
+- http://localhost:5173/ にアクセスして、「ファイルを選択」をクリックし、上記ファイルを選択します
+- 「Create Table from File」ボタンをクリックします
+- DuckDB-wasmにテーブルが作成されます
+- 「テーブル一覧を表示」ボタンをクリックすると、ファイル名と同じテーブルが作成されていることが確認できます
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
-
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
-
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
-
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+## 地図に登録したデータを表示
+- 「テーブル一覧を表示」ボタンをクリック
+- テーブル一覧が表示されたら、地図に表示したいテーブルをクリック
+- 地図に表示されないときは、地図をちょっと動かしてみてください
+- テーブル一覧の「カラム」ボタンをクリックし、各カラムの「表示」チェックボックスをチェックすると、地図上の当該データの位置をクリックしたときにそのカラムの情報がポップアップに表示されます
