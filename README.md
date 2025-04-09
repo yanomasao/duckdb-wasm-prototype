@@ -2,7 +2,7 @@
 ## 起動
 `npm install && npm run dev` 
 
-chromeの拡張機能 OPFS Explorer （ https://chromewebstore.google.com/detail/opfs-explorer/acndjpgkpaclldomagafnognkcgjignd ）を入れておくと起動時にDuckDBのデータをOPFSに配置ていることが確認できます。
+chromeの拡張機能 OPFS Explorer （ https://chromewebstore.google.com/detail/opfs-explorer/acndjpgkpaclldomagafnognkcgjignd ）を入れておくと起動時にDuckDBのデータをOPFSに配置していることが確認できます。
 
 ## ファイルの登録
 - プロジェクトのpublicディレクトリにtmpディレクトリを作成し、geojson, parquetフォーマットのファイルを置きます
