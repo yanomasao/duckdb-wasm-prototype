@@ -64,7 +64,13 @@ const generateVectorTileQuery = (params: QueryParams): string => {
 
     return `
         SELECT 
-            ST_AsGeoJSON(st_simplify(geom, ${simplify})) AS geojson,
+            ST_AsGeoJSON(
+                st_simplify(
+                    ST_Intersection(geom, ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})),
+                    -- geom,
+                    ${simplify}
+                )
+            ) AS geojson,
             ${columns}
         FROM ${selectedTable}
         WHERE ST_Intersects(
