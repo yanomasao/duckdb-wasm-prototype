@@ -19,6 +19,61 @@ interface MapProps {
     selectedColumns: string[];
 }
 
+interface TileParams {
+    z: number;
+    x: number;
+    y: number;
+    minLng: number;
+    maxLng: number;
+    minLat: number;
+    maxLat: number;
+}
+
+interface QueryParams extends TileParams {
+    selectedTable: string;
+    selectedColumns: string[];
+}
+
+const calculateSimplifyTolerance = (zoomLevel: number): number => {
+    // ズームレベル15以上は簡略化なし
+    if (zoomLevel >= 15) return 0;
+
+    // ズームレベル0から15までの範囲で、0.001から0まで線形に変化
+    // ズームレベルが低いほど（広域表示）値が大きくなる
+    const maxSimplify = 0.001;
+    const minZoom = 0;
+    const maxZoom = 15;
+
+    // 線形補間: y = mx + b
+    // m = (y2 - y1) / (x2 - x1)
+    // ここでは x1=15, y1=0, x2=0, y2=0.001
+    const m = (0 - maxSimplify) / (maxZoom - minZoom);
+    const b = maxSimplify;
+
+    const simplify = m * zoomLevel + b;
+
+    return Number(simplify.toFixed(6));
+};
+
+const generateVectorTileQuery = (params: QueryParams): string => {
+    const { z, minLng, maxLng, minLat, maxLat, selectedTable, selectedColumns } = params;
+    const columns = selectedColumns.length > 0 ? selectedColumns.join(', ') : '1 as dummy';
+    const simplify = calculateSimplifyTolerance(z);
+
+    console.log(`z: ${z}, simplify level: ${simplify}`);
+
+    return `
+        SELECT 
+            ST_AsGeoJSON(st_simplify(geom, ${simplify})) AS geojson,
+            ${columns}
+        FROM ${selectedTable}
+        WHERE ST_Intersects(
+            geom,
+            ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
+        )
+    `;
+};
+
 const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }) => {
     const [mapError, setMapError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -92,26 +147,17 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         }
 
                         // 選択されたカラムを取得するSQLクエリを構築
-                        const columns = selectedColumns.length > 0 ? selectedColumns.join(', ') : '1 as dummy';
-                        const query = `
-                            WITH params AS (
-                                SELECT 
-                                    CASE 
-                                        WHEN ${z} <= 5 THEN 0.5  -- 広域表示時は大きく簡略化
-                                        WHEN ${z} <= 10 THEN 0.1  -- 中域表示時は中程度に簡略化
-                                        WHEN ${z} <= 15 THEN 0.05  -- 詳細表示時は少し簡略化
-                                        ELSE 0.01  -- 最大ズーム時は最小限の簡略化
-                                    END as simplify
-                            )
-                            SELECT 
-                                ST_AsGeoJSON(st_simplify(geom, params.simplify)) AS geojson,
-                                ${columns}
-                            FROM ${selectedTable}, params
-                            WHERE ST_Intersects(
-                                geom,
-                                ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
-                            )
-                        `;
+                        const query = generateVectorTileQuery({
+                            z,
+                            x,
+                            y,
+                            minLng,
+                            maxLng,
+                            minLat,
+                            maxLat,
+                            selectedTable,
+                            selectedColumns,
+                        });
 
                         console.log('Executing query:', query);
                         const result = await connectionRef.current.query(query);
