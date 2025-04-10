@@ -94,10 +94,19 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         // 選択されたカラムを取得するSQLクエリを構築
                         const columns = selectedColumns.length > 0 ? selectedColumns.join(', ') : '1 as dummy';
                         const query = `
+                            WITH params AS (
+                                SELECT 
+                                    CASE 
+                                        WHEN ${z} <= 5 THEN 0.5  -- 広域表示時は大きく簡略化
+                                        WHEN ${z} <= 10 THEN 0.1  -- 中域表示時は中程度に簡略化
+                                        WHEN ${z} <= 15 THEN 0.05  -- 詳細表示時は少し簡略化
+                                        ELSE 0.01  -- 最大ズーム時は最小限の簡略化
+                                    END as simplify
+                            )
                             SELECT 
-                                ST_AsGeoJSON(geom) AS geojson,
+                                ST_AsGeoJSON(st_simplify(geom, params.simplify)) AS geojson,
                                 ${columns}
-                            FROM ${selectedTable}
+                            FROM ${selectedTable}, params
                             WHERE ST_Intersects(
                                 geom,
                                 ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
