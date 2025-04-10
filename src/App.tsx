@@ -168,6 +168,10 @@ function App() {
                 : `CREATE TABLE ${tableName} AS SELECT * FROM st_read('http://localhost:5173/tmp/${file.name}')`;
 
             await conn.query(query);
+
+            // 空間インデックス作成
+            await conn.query(`CREATE INDEX ${tableName}_idx ON ${tableName} USING RTREE (geom);`);
+
             // テーブルの作成後にcheckpointを実行
             await conn.query('CHECKPOINT;');
             console.log('Table created and checkpoint executed:', tableName);
