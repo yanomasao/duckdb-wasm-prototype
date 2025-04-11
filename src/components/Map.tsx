@@ -178,13 +178,14 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         console.log('Raw data:', rows);
 
                         const features = rows
-                            .map(row => {
+                            .map((row, index) => {
                                 try {
                                     if (!row.geojson) {
                                         console.warn('Empty geojson for row:', row);
                                         return null;
                                     }
                                     const geometry = JSON.parse(row.geojson) as Geometry;
+                                    console.log(`Parsed geometry ${index}:`, geometry);
 
                                     // 選択されたカラムの値をプロパティとして追加
                                     const properties: Record<string, string | number | null> = {};
