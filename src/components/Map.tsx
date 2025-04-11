@@ -178,14 +178,13 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         console.log('Raw data:', rows);
 
                         const features = rows
-                            .map((row, index) => {
+                            .map(row => {
                                 try {
                                     if (!row.geojson) {
                                         console.warn('Empty geojson for row:', row);
                                         return null;
                                     }
                                     const geometry = JSON.parse(row.geojson) as Geometry;
-                                    console.log(`Parsed geometry ${index}:`, geometry);
 
                                     // 選択されたカラムの値をプロパティとして追加
                                     const properties: Record<string, string | number | null> = {};
@@ -218,9 +217,12 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         const vectorTile = geojsonToVectorTile(features, z, x, y);
                         console.log('Vector tile generated, size:', vectorTile.length);
 
+                        // ArrayBufferのコピーを作成
+                        const vectorTileCopy = new Uint8Array(vectorTile).buffer;
+
                         // キャッシュに保存
-                        tileCache.current.set(cacheKey, vectorTile);
-                        return { data: vectorTile };
+                        tileCache.current.set(cacheKey, new Uint8Array(vectorTileCopy));
+                        return { data: new Uint8Array(vectorTileCopy) };
                     } catch (error) {
                         console.error('Error processing tile:', error);
                         return { data: new Uint8Array() };
