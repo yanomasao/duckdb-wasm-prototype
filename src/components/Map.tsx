@@ -218,12 +218,19 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         const vectorTile = geojsonToVectorTile(features, z, x, y);
                         console.log('Vector tile generated, size:', vectorTile.length);
 
-                        // ArrayBufferのコピーを作成
-                        const vectorTileCopy = new Uint8Array(vectorTile).buffer;
+                        // 新しいUint8Arrayを作成して、データをコピー
+                        const vectorTileCopy = new Uint8Array(vectorTile.length);
+                        vectorTileCopy.set(vectorTile);
 
-                        // キャッシュに保存
-                        tileCache.current.set(cacheKey, new Uint8Array(vectorTileCopy));
-                        return { data: new Uint8Array(vectorTileCopy) };
+                        // キャッシュには新しいコピーを保存
+                        const cacheData = new Uint8Array(vectorTileCopy.length);
+                        cacheData.set(vectorTileCopy);
+                        tileCache.current.set(cacheKey, cacheData);
+
+                        // 返り値用に別のコピーを作成
+                        const returnData = new Uint8Array(vectorTileCopy.length);
+                        returnData.set(vectorTileCopy);
+                        return { data: returnData };
                     } catch (error) {
                         console.error('Error processing tile:', error);
                         return { data: new Uint8Array() };
