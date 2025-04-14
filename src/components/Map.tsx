@@ -148,6 +148,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                     const cacheKey = `${z}/${x}/${y}`;
 
                     // キャッシュをチェック
+                    console.log('Cache get key:', cacheKey);
                     if (tileCache.current.has(cacheKey)) {
                         console.log('Using cached tile:', cacheKey);
                         return { data: tileCache.current.get(cacheKey) };
@@ -192,6 +193,8 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
 
                         if (result.numRows === 0) {
                             console.log('No data found for this tile');
+                            console.log('Cache set key:', cacheKey);
+                            tileCache.current.set(cacheKey, new Uint8Array());
                             return { data: new Uint8Array() };
                         }
 
@@ -232,6 +235,8 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
 
                         if (features.length === 0) {
                             console.log('No valid features found');
+                            console.log('Cache set key:', cacheKey);
+                            tileCache.current.set(cacheKey, new Uint8Array());
                             return { data: new Uint8Array() };
                         }
 
@@ -244,6 +249,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         vectorTileCopy.set(vectorTile);
 
                         // キャッシュには新しいコピーを保存
+                        console.log('Cache set key:', cacheKey);
                         const cacheData = new Uint8Array(vectorTileCopy.length);
                         cacheData.set(vectorTileCopy);
                         tileCache.current.set(cacheKey, cacheData);
@@ -253,6 +259,8 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         returnData.set(vectorTileCopy);
                         return { data: returnData };
                     } catch (error) {
+                        console.log('Cache set key:', cacheKey);
+                        tileCache.current.set(cacheKey, new Uint8Array());
                         console.error('Error processing tile:', error);
                         return { data: new Uint8Array() };
                     }
