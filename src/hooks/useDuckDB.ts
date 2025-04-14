@@ -33,10 +33,10 @@ export function useDuckDB() {
 
                 // OPFSにデータベースを配置
                 await db.open({
-                    path: "opfs://data.duckdb",
-                    accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
+                    // path: "opfs://data.duckdb",
+                    // accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
                 });
-                console.log("Database opened successfully in OPFS.");
+                console.log("Database opened successfully.");
 
                 // Install and load the spatial extension
                 const conn = await db.connect();
