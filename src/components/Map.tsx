@@ -52,6 +52,13 @@ const calculateSimplifyTolerance = (zoomLevel: number): number => {
 
     const simplify = m * zoomLevel + b;
 
+    // // ズームレベルに応じて指数関数的に簡略化レベルを変更
+    // const maxSimplify = 0.001; // 最大簡略化レベル
+    // const zoomFactor = (15 - zoomLevel) / 15; // 0から1の値
+
+    // // 指数関数的な補間を使用
+    // const simplify = maxSimplify * Math.pow(zoomFactor, 2);
+
     return Number(simplify.toFixed(6));
 };
 
@@ -65,16 +72,21 @@ const generateVectorTileQuery = (params: QueryParams): string => {
     return `
         SELECT 
             ST_AsGeoJSON(
-                st_simplify(
-                    ST_Intersection(geom, ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})),
+                -- geom
+                -- st_simplify(
+                    -- ST_Intersection(geom, ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})),
+                --    ST_Intersection(ST_MakeEnvelope(bbox[1], bbox[2], bbox[3], bbox[4]), ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})),
                     -- geom,
-                    ${simplify}
-                )
-            ) AS geojson,
+                --    ${simplify}
+                --)
+                -- ST_Intersection(ST_MakeEnvelope(bbox[1], bbox[2], bbox[3], bbox[4]), ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat}))
+                    ST_Intersection(st_makevalid(geom), ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat}))
+                ) AS geojson,
             ${columns}
         FROM ${selectedTable}
         WHERE ST_Intersects(
             geom,
+            -- ST_MakeEnvelope(bbox[1], bbox[2], bbox[3], bbox[4]),
             ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
         )
     `;
@@ -175,7 +187,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         }
 
                         const rows = result.toArray() as Array<{ geojson: string } & Record<string, string | number | null>>;
-                        console.log('Raw data:', rows);
+                        // console.log('Raw data:', rows);
 
                         const features = rows
                             .map((row, index) => {
@@ -185,7 +197,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                                         return null;
                                     }
                                     const geometry = JSON.parse(row.geojson) as Geometry;
-                                    console.log(`Parsed geometry ${index}:`, geometry);
+                                    // console.log(`Parsed geometry ${index}:`, geometry);
 
                                     // 選択されたカラムの値をプロパティとして追加
                                     const properties: Record<string, string | number | null> = {};
@@ -207,14 +219,14 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                             })
                             .filter((feature): feature is Feature<Geometry, GeoJsonProperties> => feature !== null);
 
-                        console.log('Processed features:', features);
+                        // console.log('Processed features:', features);
 
                         if (features.length === 0) {
                             console.log('No valid features found');
                             return { data: new Uint8Array() };
                         }
 
-                        console.log('Generating vector tile...');
+                        // console.log('Generating vector tile...');
                         const vectorTile = geojsonToVectorTile(features, z, x, y);
                         console.log('Vector tile generated, size:', vectorTile.length);
 
