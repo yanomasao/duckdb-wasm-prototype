@@ -171,6 +171,17 @@ function App() {
 
             // 空間インデックス作成
             await conn.query(`CREATE INDEX ${tableName}_idx ON ${tableName} USING RTREE (geom);`);
+            // bboxを持っているテーブルの場合
+            // await conn.query(`CREATE TABLE ${tableName}_alt AS SELECT *,
+            //     ST_MakeEnvelope(
+            //         bbox[4],  -- minx
+            //         bbox[2],  -- miny
+            //         bbox[3],  -- maxx
+            //         bbox[1]   -- maxy
+            //     ) as bbox_geom
+            //     FROM ${tableName}`);
+            // await conn.query(`CREATE INDEX ${tableName}_idx ON ${tableName}_alt USING RTREE (geom);`);
+            // await conn.query(`CREATE INDEX ${tableName}_idx_bbox ON ${tableName}_alt USING RTREE (bbox_geom);`);
 
             // テーブルの作成後にcheckpointを実行
             await conn.query('CHECKPOINT;');
