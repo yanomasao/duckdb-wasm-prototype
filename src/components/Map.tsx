@@ -72,9 +72,11 @@ const generateVectorTileQuery = (params: QueryParams): string => {
     return `
         SELECT 
             ST_AsGeoJSON(
-                -- ST_Simplify(
-                ST_SimplifyPreserveTopology(
-                    ST_Intersection(st_makevalid(geom), ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})),
+                -- geom
+                ST_Simplify(
+                -- ST_SimplifyPreserveTopology(
+                --    ST_Intersection(ST_MakeValid(geom), ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})),
+                    geom,
                     ${simplify}
                 )
             ) AS geojson,
@@ -82,22 +84,23 @@ const generateVectorTileQuery = (params: QueryParams): string => {
         FROM ${selectedTable}
         WHERE ST_Intersects(
             geom,
+            -- bbox_geom,
             -- ST_MakeEnvelope(bbox[1], bbox[2], bbox[3], bbox[4]),
             ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
         )
-        AND (
-            -- ポリゴンの場合、ズームレベルに応じて面積でフィルタリング
-            (st_geometrytype(geom) = 'POLYGON' AND 
-                CASE 
-                    WHEN ${z} = 0 THEN ST_Area(geom) > 1.0
-                    WHEN ${z} <= 5 THEN ST_Area(geom) > 0.5
-                    WHEN ${z} <= 10 THEN ST_Area(geom) > 0.25
-                    ELSE true
-                END
-            )
-            -- ラインストリングとポイントは常に表示
-            OR st_geometrytype(geom) IN ('LINESTRING', 'POINT')
-        )
+        -- AND (
+        --     -- ポリゴンの場合、ズームレベルに応じて面積でフィルタリング
+        --     (st_geometrytype(geom) = 'POLYGON' AND 
+        --         CASE 
+        --             WHEN ${z} = 0 THEN ST_Area(geom) > 1.0
+        --             WHEN ${z} <= 5 THEN ST_Area(geom) > 0.5
+        --             WHEN ${z} <= 10 THEN ST_Area(geom) > 0.25
+        --             ELSE true
+        --         END
+        --     )
+        --     -- ラインストリングとポイントは常に表示
+        --     OR st_geometrytype(geom) IN ('LINESTRING', 'POINT')
+        -- )
     `;
 };
 
@@ -108,6 +111,8 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
     const tileCache = useRef<Map<string, Uint8Array>>(new Map());
 
     useEffect(() => {
+        const startTime = new Date();
+        console.log(`計測 0 ${startTime.toISOString()} start マップ初期化`);
         console.log('マップ初期化開始');
 
         // DuckDBの初期化状態を確認
@@ -147,10 +152,15 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                     const [z, x, y] = match.slice(1).map(Number);
                     const cacheKey = `${z}/${x}/${y}`;
 
+                    const addProtocolTime = new Date();
+                    console.log(`計測 ${cacheKey} 1 ${addProtocolTime.toISOString()} start addProtocol`);
+
                     // キャッシュをチェック
-                    console.log('Cache get key:', cacheKey);
+                    // console.log('Cache get key:', cacheKey);
                     if (tileCache.current.has(cacheKey)) {
-                        console.log('Using cached tile:', cacheKey);
+                        const endTime = new Date();
+                        const elapsedMs = endTime.getTime() - addProtocolTime.getTime();
+                        console.log(`cache io using cached tile: ${cacheKey}, elapsed: ${elapsedMs}ms`);
                         return { data: tileCache.current.get(cacheKey) };
                     }
 
@@ -187,13 +197,18 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                             selectedColumns,
                         });
 
+                        const queryStartTime = new Date();
                         console.log('Executing query:', query);
+                        console.log(`計測 ${cacheKey} 2 ${queryStartTime.toISOString()} start duckdb query`);
                         const result = await connectionRef.current.query(query);
+                        const queryEndTime = new Date();
+                        const queryElapsedMs = queryEndTime.getTime() - queryStartTime.getTime();
                         console.log(`Query returned ${result.numRows} rows`);
+                        console.log(`計測 ${cacheKey} 3 ${queryEndTime.toISOString()} end duckdb query, elapsed: ${queryElapsedMs}ms ${result.numRows} rows`);
 
                         if (result.numRows === 0) {
                             console.log('No data found for this tile');
-                            console.log('Cache set key:', cacheKey);
+                            console.log('cache io set key:', cacheKey);
                             tileCache.current.set(cacheKey, new Uint8Array());
                             return { data: new Uint8Array() };
                         }
@@ -201,8 +216,10 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         const rows = result.toArray() as Array<{ geojson: string } & Record<string, string | number | null>>;
                         // console.log('Raw data:', rows);
 
+                        const featureStartTime = new Date();
+                        console.log(`計測 ${cacheKey} 4 ${featureStartTime.toISOString()} start feature`);
                         const features = rows
-                            .map((row, index) => {
+                            .map(row => {
                                 try {
                                     if (!row.geojson) {
                                         console.warn('Empty geojson for row:', row);
@@ -230,18 +247,26 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                                 }
                             })
                             .filter((feature): feature is Feature<Geometry, GeoJsonProperties> => feature !== null);
+                        const featureEndTime = new Date();
+                        const featureElapsedMs = featureEndTime.getTime() - featureStartTime.getTime();
+                        console.log(`計測 ${cacheKey} 5 ${featureEndTime.toISOString()} end feature, elapsed: ${featureElapsedMs}ms`);
 
                         // console.log('Processed features:', features);
 
                         if (features.length === 0) {
                             console.log('No valid features found');
-                            console.log('Cache set key:', cacheKey);
+                            console.log('cache io set key:', cacheKey);
                             tileCache.current.set(cacheKey, new Uint8Array());
                             return { data: new Uint8Array() };
                         }
 
                         // console.log('Generating vector tile...');
+                        const vectorStartTime = new Date();
+                        console.log(`計測 ${cacheKey} 6 ${vectorStartTime.toISOString()} start vector`);
                         const vectorTile = geojsonToVectorTile(features, z, x, y);
+                        const vectorEndTime = new Date();
+                        const vectorElapsedMs = vectorEndTime.getTime() - vectorStartTime.getTime();
+                        console.log(`計測 ${cacheKey} 7 ${vectorEndTime.toISOString()} end  vector, elapsed: ${vectorElapsedMs}ms`);
                         console.log('Vector tile generated, size:', vectorTile.length);
 
                         // 新しいUint8Arrayを作成して、データをコピー
@@ -249,7 +274,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         vectorTileCopy.set(vectorTile);
 
                         // キャッシュには新しいコピーを保存
-                        console.log('Cache set key:', cacheKey);
+                        console.log('cache io set key:', cacheKey);
                         const cacheData = new Uint8Array(vectorTileCopy.length);
                         cacheData.set(vectorTileCopy);
                         tileCache.current.set(cacheKey, cacheData);
@@ -257,9 +282,12 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         // 返り値用に別のコピーを作成
                         const returnData = new Uint8Array(vectorTileCopy.length);
                         returnData.set(vectorTileCopy);
+                        const endTime = new Date();
+                        const totalElapsedMs = endTime.getTime() - addProtocolTime.getTime();
+                        console.log(`計測 ${cacheKey} 8 ${endTime.toISOString()} end addProtocol, total elapsed: ${totalElapsedMs}ms`);
                         return { data: returnData };
                     } catch (error) {
-                        console.log('Cache set key:', cacheKey);
+                        console.log('cache io set key:', cacheKey);
                         tileCache.current.set(cacheKey, new Uint8Array());
                         console.error('Error processing tile:', error);
                         return { data: new Uint8Array() };
@@ -269,7 +297,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                 // マップの初期化
                 const mapInstance = new maplibregl.Map({
                     container: 'map',
-                    zoom: 7,
+                    zoom: 4,
                     center: [139.7482, 35.6591], // 東京付近の座標
                     style: {
                         version: 8,
@@ -344,6 +372,9 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
 
                 // マップの読み込み完了時の処理
                 mapInstance.on('load', () => {
+                    const endTime = new Date();
+                    const totalElapsedMs = endTime.getTime() - startTime.getTime();
+                    console.log(`計測 9 ${endTime.toISOString()} end マップ初期化, total elapsed: ${totalElapsedMs}ms`);
                     console.log('マップ読み込み完了');
                     setIsLoading(false);
 
