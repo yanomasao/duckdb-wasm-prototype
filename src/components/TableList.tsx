@@ -1,6 +1,5 @@
-import * as duckdb from '@duckdb/duckdb-wasm';
-import React, { useState } from 'react';
-import { useEffect } from 'react';
+import { AsyncDuckDB } from '@duckdb/duckdb-wasm';
+import React, { useEffect, useState } from 'react';
 
 interface TableListProps {
     db: AsyncDuckDB;
@@ -153,13 +152,15 @@ const TableList: React.FC<TableListProps> = ({ db, selectedTable, onTableSelect,
 
     return (
         <div>
-            <button onClick={() => setShow(!show)} disabled={!db}>
-                {show ? 'テーブル一覧を隠す' : 'テーブル一覧を表示'}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <h3 style={{ margin: 0 }}>テーブル一覧</h3>
+                <button onClick={() => setShow(!show)} disabled={!db}>
+                    {show ? '隠す' : '表示'}
+                </button>
+            </div>
 
             {show && (
                 <div className="table-list">
-                    <h3>テーブル一覧</h3>
                     <ul>
                         {tables.map(table => (
                             <li key={table.name} className="table-item">
