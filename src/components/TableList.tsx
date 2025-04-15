@@ -1,367 +1,250 @@
-import * as duckdb from "@duckdb/duckdb-wasm";
-import React, { useState } from "react";
+import * as duckdb from '@duckdb/duckdb-wasm';
+import React, { useState } from 'react';
+import { useEffect } from 'react';
 
 interface TableListProps {
-    tables: string[];
-    selectedTables: string[];
+    db: AsyncDuckDB;
+    selectedTable: string | null;
     onTableSelect: (tableName: string) => void;
-    db: duckdb.AsyncDuckDB | null;
-    onColumnAliasChange: (
-        tableName: string,
-        columnName: string,
-        alias: string
-    ) => void;
-    onTableDelete: (tableName: string) => void;
-    onTableConditionChange: (tableName: string, condition: string) => void;
-    onShowTableData: (tableName: string) => void;
-    onColumnSelect: (
-        tableName: string,
-        columnName: string,
-        selected: boolean
-    ) => void;
-    columnStates: { [key: string]: ColumnInfo[] };
-    setColumnStates: React.Dispatch<
-        React.SetStateAction<{ [key: string]: ColumnInfo[] }>
-    >;
-    onLimitToTileChange: (tableName: string, limitToTile: boolean) => void;
-    limitToTileStates: { [key: string]: boolean };
+    selectedColumns: Record<string, string[]>;
+    onColumnSelect: (tableName: string, columns: string[]) => void;
+}
+
+interface TableInfo {
+    name: string;
+    count: number;
 }
 
 interface ColumnInfo {
     name: string;
-    selected: boolean;
-    alias: string;
+    type: string;
 }
 
-export const TableList: React.FC<TableListProps> = ({
-    tables,
-    selectedTables,
-    onTableSelect,
-    db,
-    onColumnAliasChange,
-    onTableDelete,
-    onTableConditionChange,
-    onShowTableData,
-    onColumnSelect,
-    columnStates,
-    setColumnStates,
-    onLimitToTileChange,
-    limitToTileStates,
-}) => {
-    const [expandedTable, setExpandedTable] = useState<string | null>(null);
-    const [editingAlias, setEditingAlias] = useState<{
-        table: string;
-        column: string;
-    } | null>(null);
-    const [aliasText, setAliasText] = useState("");
-    const [tableConditions, setTableConditions] = useState<{
-        [key: string]: string;
-    }>({});
+const TableList: React.FC<TableListProps> = ({ db, selectedTable, onTableSelect, selectedColumns, onColumnSelect }) => {
+    const [show, setShow] = useState(false);
+    const [tables, setTables] = useState<TableInfo[]>([]);
+    const [tableColumns, setTableColumns] = useState<Record<string, ColumnInfo[]>>({});
+    const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
+    const [queryResult, setQueryResult] = useState<Array<Record<string, any>> | null>(null);
+    const [queryError, setQueryError] = useState<string | null>(null);
 
-    const handleTableClick = async (tableName: string) => {
+    const fetchTableColumns = async (tableName: string) => {
         if (!db) return;
 
-        if (expandedTable === tableName) {
-            setExpandedTable(null);
-        } else {
-            setExpandedTable(tableName);
-            if (!columnStates[tableName]) {
-                const conn = await db.connect();
-                const result = await conn.query(`DESCRIBE ${tableName};`);
-                const columnNames: ColumnInfo[] = [];
-
-                for (let i = 0; i < result.numRows; i++) {
-                    const name = result.getChildAt(0)?.get(i) as string;
-                    columnNames.push({
-                        name,
-                        selected: false,
-                        alias: "",
-                    });
-                }
-
-                setColumnStates((prev) => ({
-                    ...prev,
-                    [tableName]: columnNames,
-                }));
-
-                await conn.close();
-            }
+        try {
+            const conn = await db.connect();
+            const result = await conn.query(`DESCRIBE ${tableName};`);
+            const columns = result.toArray().map(row => ({
+                name: row.column_name,
+                type: row.column_type,
+            }));
+            setTableColumns(prev => ({
+                ...prev,
+                [tableName]: columns,
+            }));
+            await conn.close();
+        } catch (err) {
+            console.error('Error fetching table columns:', err);
         }
+    };
+
+    const fetchTables = async () => {
+        if (!db) return;
+
+        try {
+            const conn = await db.connect();
+            const result = await conn.query('SHOW TABLES;');
+            const tableNames: string[] = [];
+            for (let i = 0; i < result.numRows; i++) {
+                tableNames.push(result.getChildAt(0)?.get(i) as string);
+            }
+
+            const tablesWithCount = await Promise.all(
+                tableNames.map(async tableName => {
+                    const countResult = await conn.query(`SELECT COUNT(*) as count FROM ${tableName}`);
+                    return {
+                        name: tableName,
+                        count: countResult.getChildAt(0)?.get(0) as number,
+                    };
+                })
+            );
+
+            setTables(tablesWithCount);
+            await conn.close();
+
+            for (const table of tablesWithCount) {
+                await fetchTableColumns(table.name);
+            }
+        } catch (err) {
+            console.error('Error fetching tables:', err);
+        }
+    };
+
+    useEffect(() => {
+        if (show) {
+            fetchTables();
+        }
+    }, [show, db]);
+
+    const handleTableNameClick = (tableName: string) => {
+        setVisibleColumns(prev => ({
+            ...prev,
+            [tableName]: !prev[tableName],
+        }));
     };
 
     const handleColumnSelect = (tableName: string, columnName: string) => {
-        const currentSelected =
-            columnStates[tableName]?.find((col) => col.name === columnName)
-                ?.selected || false;
-        onColumnSelect(tableName, columnName, !currentSelected);
+        const currentColumns = selectedColumns[tableName] || [];
+        const newColumns = currentColumns.includes(columnName) ? currentColumns.filter(col => col !== columnName) : [...currentColumns, columnName];
+        onColumnSelect(tableName, newColumns);
     };
 
-    const handleAliasSave = () => {
-        if (editingAlias) {
-            onColumnAliasChange(
-                editingAlias.table,
-                editingAlias.column,
-                aliasText
-            );
-            setEditingAlias(null);
+    const handleShowTableData = async (tableName: string) => {
+        if (!db) return;
+
+        try {
+            const conn = await db.connect();
+            const result = await conn.query(`
+                SELECT 
+                    ST_AsGeoJSON(geom) as geom_json,
+                    * EXCLUDE (geom)
+                FROM ${tableName};
+            `);
+
+            const rows = result.toArray().map(row => {
+                const newRow = { ...row };
+                if (newRow.geom_json) {
+                    newRow.geom = JSON.parse(newRow.geom_json);
+                    delete newRow.geom_json;
+                }
+                return newRow;
+            });
+
+            setQueryResult(rows);
+            setQueryError(null);
+            await conn.close();
+        } catch (err) {
+            console.error('Error fetching table data:', err);
+            setQueryError(err instanceof Error ? err.message : 'Unknown error occurred');
+            setQueryResult(null);
         }
     };
 
-    const handleConditionChange = (tableName: string, condition: string) => {
-        setTableConditions((prev) => ({
-            ...prev,
-            [tableName]: condition,
-        }));
-        onTableConditionChange(tableName, condition);
+    const handleTableDelete = async (tableName: string) => {
+        if (!db) return;
+
+        if (!window.confirm(`テーブル "${tableName}" を削除してもよろしいですか？`)) {
+            return;
+        }
+
+        try {
+            const conn = await db.connect();
+            await conn.query(`DROP TABLE ${tableName};`);
+            await conn.close();
+            console.log('Table deleted:', tableName);
+            fetchTables();
+        } catch (err) {
+            console.error('Error deleting table:', err);
+            alert('テーブルの削除に失敗しました');
+        }
     };
 
     return (
-        <div className='table-list'>
-            <h3>テーブル一覧</h3>
-            <div className='table-checkboxes'>
-                {tables.map((table) => (
-                    <div key={table} className='table-item'>
-                        <div className='table-header'>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "8px",
-                                }}
-                            >
-                                <input
-                                    type='checkbox'
-                                    checked={selectedTables.includes(table)}
-                                    onChange={() => onTableSelect(table)}
-                                    style={{ margin: 0 }}
-                                />
-                                <span
-                                    className='table-name'
-                                    onClick={() => handleTableClick(table)}
-                                    style={{ cursor: "pointer" }}
-                                >
-                                    {table}
-                                    {expandedTable === table && (
-                                        <span className='expand-icon'>▼</span>
-                                    )}
-                                </span>
-                            </div>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    gap: "8px",
-                                    marginLeft: "8px",
-                                }}
-                            >
-                                <button
-                                    onClick={() => onShowTableData(table)}
-                                    style={{
-                                        fontSize: "12px",
-                                        padding: "2px 4px",
-                                        backgroundColor: "#4CAF50",
-                                        color: "white",
-                                        border: "none",
-                                        borderRadius: "3px",
-                                        cursor: "pointer",
-                                    }}
-                                >
-                                    一覧
-                                </button>
-                                <button
-                                    onClick={() => onTableDelete(table)}
-                                    style={{
-                                        fontSize: "12px",
-                                        padding: "2px 4px",
-                                        backgroundColor: "#ff4444",
-                                        color: "white",
-                                        border: "none",
-                                        borderRadius: "3px",
-                                        cursor: "pointer",
-                                    }}
-                                >
-                                    削除
-                                </button>
-                            </div>
-                        </div>
-                        {expandedTable === table && (
-                            <>
-                                <div
-                                    style={{
-                                        marginTop: "8px",
-                                        padding: "8px",
-                                        backgroundColor: "#f5f5f5",
-                                        borderRadius: "4px",
-                                    }}
-                                >
-                                    <label
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "8px",
-                                            fontSize: "12px",
-                                            marginBottom: "8px",
-                                        }}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={limitToTileStates[table] || false}
-                                            onChange={(e) => onLimitToTileChange(table, e.target.checked)}
-                                        />
-                                        タイル内に限定
+        <div>
+            <button onClick={() => setShow(!show)} disabled={!db}>
+                {show ? 'テーブル一覧を隠す' : 'テーブル一覧を表示'}
+            </button>
+
+            {show && (
+                <div className="table-list">
+                    <h3>テーブル一覧</h3>
+                    <ul>
+                        {tables.map(table => (
+                            <li key={table.name} className="table-item">
+                                <div className="table-name-container">
+                                    <input
+                                        type="radio"
+                                        name="table-select"
+                                        id={`table-${table.name}`}
+                                        checked={selectedTable === table.name}
+                                        onChange={() => onTableSelect(table.name)}
+                                    />
+                                    <label htmlFor={`table-${table.name}`}>
+                                        <span className="table-name">{table.name}</span>
+                                        <span className="table-count">({table.count.toLocaleString()}行)</span>
                                     </label>
-                                    <div
-                                        className='condition-input'
-                                        style={{
-                                            marginTop: "8px",
+                                    <button
+                                        className="column-button"
+                                        onClick={e => {
+                                            e.stopPropagation();
+                                            handleTableNameClick(table.name);
                                         }}
                                     >
-                                        <label
-                                            style={{
-                                                display: "block",
-                                                fontSize: "12px",
-                                                marginBottom: "4px",
-                                            }}
-                                        >
-                                            条件 (WHERE句):
-                                        </label>
-                                        <input
-                                            type='text'
-                                            value={tableConditions[table] || ""}
-                                            onChange={(e) =>
-                                                handleConditionChange(
-                                                    table,
-                                                    e.target.value
-                                                )
-                                            }
-                                            placeholder='例: name LIKE "%駅%"'
-                                            style={{
-                                                width: "100%",
-                                                fontSize: "12px",
-                                                padding: "4px",
-                                                border: "1px solid #ddd",
-                                                borderRadius: "3px",
-                                            }}
-                                        />
+                                        カラム
+                                    </button>
+                                    <div className="table-buttons">
+                                        <button onClick={() => handleShowTableData(table.name)}>一覧</button>
+                                        <button onClick={() => handleTableDelete(table.name)}>削除</button>
                                     </div>
                                 </div>
-                                <div className='column-list'>
-                                    {columnStates[table]?.map((column) => (
-                                        <div
-                                            key={column.name}
-                                            className='column-item'
-                                        >
-                                            <label className='column-checkbox'>
-                                                <input
-                                                    type='checkbox'
-                                                    checked={column.selected}
-                                                    onChange={() =>
-                                                        handleColumnSelect(
-                                                            table,
-                                                            column.name
-                                                        )
-                                                    }
-                                                />
-                                                <div
-                                                    style={{
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        gap: "8px",
-                                                    }}
-                                                >
-                                                    {column.name}
-                                                    {editingAlias?.table ===
-                                                        table &&
-                                                    editingAlias?.column ===
-                                                        column.name ? (
-                                                        <div
-                                                            style={{
-                                                                display: "flex",
-                                                                gap: "4px",
-                                                            }}
-                                                        >
+                                {tableColumns[table.name] && visibleColumns[table.name] && (
+                                    <div className="table-columns">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>表示</th>
+                                                    <th>カラム名</th>
+                                                    <th>型</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {tableColumns[table.name].map(column => (
+                                                    <tr key={column.name}>
+                                                        <td>
                                                             <input
-                                                                type='text'
-                                                                value={
-                                                                    aliasText
-                                                                }
-                                                                onChange={(e) =>
-                                                                    setAliasText(
-                                                                        e.target
-                                                                            .value
-                                                                    )
-                                                                }
-                                                                placeholder='エイリアス'
-                                                                style={{
-                                                                    fontSize:
-                                                                        "12px",
-                                                                    padding:
-                                                                        "2px 4px",
-                                                                }}
+                                                                type="checkbox"
+                                                                checked={(selectedColumns[table.name] || []).includes(column.name)}
+                                                                onChange={() => handleColumnSelect(table.name, column.name)}
                                                             />
-                                                            <button
-                                                                onClick={
-                                                                    handleAliasSave
-                                                                }
-                                                                style={{
-                                                                    fontSize:
-                                                                        "12px",
-                                                                    padding:
-                                                                        "2px 4px",
-                                                                }}
-                                                            >
-                                                                保存
-                                                            </button>
-                                                            <button
-                                                                onClick={() =>
-                                                                    setEditingAlias(
-                                                                        null
-                                                                    )
-                                                                }
-                                                                style={{
-                                                                    fontSize:
-                                                                        "12px",
-                                                                    padding:
-                                                                        "2px 4px",
-                                                                }}
-                                                            >
-                                                                キャンセル
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <div
-                                                            style={{
-                                                                display: "flex",
-                                                                alignItems:
-                                                                    "center",
-                                                                gap: "4px",
-                                                            }}
-                                                        >
-                                                            {column.alias && (
-                                                                <span
-                                                                    style={{
-                                                                        fontSize:
-                                                                            "12px",
-                                                                        color: "#666",
-                                                                    }}
-                                                                >
-                                                                    as{" "}
-                                                                    {
-                                                                        column.alias
-                                                                    }
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </label>
-                                        </div>
+                                                        </td>
+                                                        <td>{column.name}</td>
+                                                        <td>{column.type}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                    {queryError && <div className="query-error">{queryError}</div>}
+                    {queryResult && (
+                        <div className="query-result">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        {Object.keys(queryResult[0]).map(key => (
+                                            <th key={key}>{key}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {queryResult.map((row, index) => (
+                                        <tr key={index}>
+                                            {Object.entries(row).map(([key, value]) => (
+                                                <td key={key}>{key === 'geom' ? <pre>{JSON.stringify(value, null, 2)}</pre> : String(value)}</td>
+                                            ))}
+                                        </tr>
                                     ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
-                ))}
-            </div>
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };
+
+export default TableList;
