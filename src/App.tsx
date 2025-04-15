@@ -223,7 +223,7 @@ function App() {
     return (
         <>
             <div className="card">
-                <RemoteResources />
+                {db && <RemoteResources db={db} onTableCreated={fetchTables} />}
                 <div className="file-upload">
                     <input type="file" onChange={handleFileChange} accept=".parquet,.geojson,.shp" />
                     <button onClick={createTableFromFile} disabled={!db || !file || isCreatingTable}>

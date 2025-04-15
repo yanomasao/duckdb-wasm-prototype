@@ -1,16 +1,25 @@
+import { AsyncDuckDB } from '@duckdb/duckdb-wasm';
 import { useEffect, useState } from 'react';
 
-const RemoteResources = () => {
+interface RemoteResourcesProps {
+    db: AsyncDuckDB;
+    onTableCreated?: () => void;
+}
+
+const remoteUrl = 'http://localhost:9191';
+
+const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated }) => {
     const [files, setFiles] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     useEffect(() => {
         const fetchFiles = async () => {
             setIsLoading(true);
             setError(null);
             try {
-                const response = await fetch('http://localhost:8081/api/files');
+                const response = await fetch(remoteUrl + '/api/files');
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -27,17 +36,61 @@ const RemoteResources = () => {
         fetchFiles();
     }, []);
 
-    if (isLoading) {
-        return <div>Loading files...</div>;
-    }
+    const handleFileClick = async (fileName: string) => {
+        if (isProcessing || !db) return;
+        setIsProcessing(true);
+        setError(null);
 
-    if (error) {
-        return <div className="error">Error: {error}</div>;
-    }
+        try {
+            const conn = await db.connect();
+
+            // テーブル名を生成（拡張子を除去し、特殊文字を置換）
+            let tableName = fileName.split('.')[0].replace(/[^a-zA-Z0-9_]/g, '_');
+            // 数字で始まる場合、プレフィックスを追加
+            if (/^\d/.test(tableName)) {
+                tableName = `t_${tableName}`;
+            }
+
+            try {
+                // 既存のテーブルを削除（存在する場合）
+                await conn.query(`DROP TABLE IF EXISTS ${tableName}`);
+
+                // URLから直接テーブルを作成
+                const startTime = new Date();
+                console.log(`計測 ${startTime.toISOString()} start create table`);
+                await conn.query(`
+                    CREATE TABLE ${tableName} AS 
+                    SELECT * FROM read_parquet('${remoteUrl}/api/parquet_stream?file=${encodeURIComponent(fileName)}')
+                `);
+                const endTime = new Date();
+                const elapsedMs = endTime.getTime() - startTime.getTime();
+                console.log(`計測 ${endTime.toISOString()} end create table, elapsed: ${elapsedMs}ms`);
+
+                // 空間インデックスを作成（geomカラムが存在する場合）
+                const columns = await conn.query(`DESCRIBE ${tableName}`);
+                const hasGeom = columns.toArray().some(row => row.column_name === 'geom');
+                if (hasGeom) {
+                    await conn.query(`CREATE INDEX ${tableName}_idx ON ${tableName} USING RTREE (geom)`);
+                }
+
+                console.log(`Table "${tableName}" created successfully`);
+                onTableCreated?.(); // 親コンポーネントに通知
+            } finally {
+                await conn.close();
+            }
+        } catch (err) {
+            console.error('Error processing file:', err);
+            setError(err instanceof Error ? err.message : 'Failed to process file');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
 
     return (
         <div className="remote-resources">
             <h3>Remote Files</h3>
+            {isProcessing && <div>Processing file...</div>}
+            {error && <div className="error">Error: {error}</div>}
             <div className="file-list">
                 {files.length === 0 ? (
                     <p>No files found</p>
@@ -51,7 +104,7 @@ const RemoteResources = () => {
                         </thead>
                         <tbody>
                             {files.map(fileName => (
-                                <tr key={fileName}>
+                                <tr key={fileName} onClick={() => handleFileClick(fileName)} style={{ cursor: 'pointer' }}>
                                     <td style={{ textAlign: 'left' }}>{fileName}</td>
                                     <td>{getFileType(fileName)}</td>
                                 </tr>
@@ -64,7 +117,6 @@ const RemoteResources = () => {
     );
 };
 
-// ファイルの拡張子を取得する関数
 const getFileType = (fileName: string): string => {
     const extension = fileName.split('.').pop()?.toLowerCase() || '';
     return extension;
