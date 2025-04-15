@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import './App.css';
 import MapComponent from './components/Map';
+import RemoteResources from './components/RemoteResources';
 import { useDuckDB } from './hooks/useDuckDB';
 
 function App() {
@@ -222,6 +223,7 @@ function App() {
     return (
         <>
             <div className="card">
+                <RemoteResources />
                 <div className="file-upload">
                     <input type="file" onChange={handleFileChange} accept=".parquet,.geojson,.shp" />
                     <button onClick={createTableFromFile} disabled={!db || !file || isCreatingTable}>
