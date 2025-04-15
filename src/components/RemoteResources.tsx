@@ -44,22 +44,21 @@ const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated })
         try {
             const conn = await db.connect();
 
-            // テーブル名を生成（拡張子を除去し、特殊文字を置換）
-            let tableName = fileName.split('.')[0].replace(/[^a-zA-Z0-9_]/g, '_');
-            // 数字で始まる場合、プレフィックスを追加
-            if (/^\d/.test(tableName)) {
-                tableName = `t_${tableName}`;
-            }
+            // テーブル名を生成（日本語を含むファイル名を適切に処理）
+            let tableName = fileName
+                .split('.')[0] // 拡張子を除去
+                .replace(/[^a-zA-Z0-9_\u3000-\u9FFF]/g, '_') // 日本語とアルファベット、数字、アンダースコア以外を'_'に変換
+                .replace(/^(\d)/, 't_$1'); // 数字で始まる場合、't_'をプレフィックスとして追加
 
             try {
                 // 既存のテーブルを削除（存在する場合）
-                await conn.query(`DROP TABLE IF EXISTS ${tableName}`);
+                await conn.query(`DROP TABLE IF EXISTS "${tableName}"`);
 
                 // URLから直接テーブルを作成
                 const startTime = new Date();
                 console.log(`計測 ${startTime.toISOString()} start create table`);
                 await conn.query(`
-                    CREATE TABLE ${tableName} AS 
+                    CREATE TABLE "${tableName}" AS 
                     SELECT * FROM read_parquet('${remoteUrl}/api/parquet_stream?file=${encodeURIComponent(fileName)}')
                 `);
                 const endTime = new Date();
@@ -67,10 +66,10 @@ const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated })
                 console.log(`計測 ${endTime.toISOString()} end create table, elapsed: ${elapsedMs}ms`);
 
                 // 空間インデックスを作成（geomカラムが存在する場合）
-                const columns = await conn.query(`DESCRIBE ${tableName}`);
+                const columns = await conn.query(`DESCRIBE "${tableName}"`);
                 const hasGeom = columns.toArray().some(row => row.column_name === 'geom');
                 if (hasGeom) {
-                    await conn.query(`CREATE INDEX ${tableName}_idx ON ${tableName} USING RTREE (geom)`);
+                    await conn.query(`CREATE INDEX "${tableName}_idx" ON "${tableName}" USING RTREE (geom)`);
                 }
 
                 console.log(`Table "${tableName}" created successfully`);
