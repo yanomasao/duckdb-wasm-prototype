@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './App.css';
+import LocalFiles from './components/LocalFiles';
 import MapComponent from './components/Map';
 import RemoteResources from './components/RemoteResources';
 import { useDuckDB } from './hooks/useDuckDB';
@@ -139,68 +140,6 @@ function App() {
         }
     };
 
-    // ファイル選択ハンドラー
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedFile = event.target.files?.[0] || null;
-        setFile(selectedFile);
-    };
-
-    // テーブル作成関数
-    const createTableFromFile = async () => {
-        if (!db || !file) return;
-
-        setIsCreatingTable(true);
-        // テーブル作成中のクラスを追加
-        document.body.classList.add('creating-table');
-        try {
-            const conn = await db.connect();
-            await conn.query('LOAD spatial;');
-
-            let tableName = file.name.split('.')[0].replace(/-/g, '_');
-            // 最初の文字が数字の場合、t_をプレフィックスとして追加
-            if (/^\d/.test(tableName)) {
-                tableName = `t_${tableName}`;
-            }
-
-            const isParquet = file.name.toLowerCase().endsWith('.parquet');
-
-            const query = isParquet
-                ? `CREATE TABLE ${tableName} AS SELECT * FROM 'http://localhost:5173/tmp/${file.name}'`
-                : `CREATE TABLE ${tableName} AS SELECT * FROM st_read('http://localhost:5173/tmp/${file.name}')`;
-
-            await conn.query(query);
-
-            // 空間インデックス作成
-            await conn.query(`CREATE INDEX ${tableName}_idx ON ${tableName} USING RTREE (geom);`);
-            // bboxを持っているテーブルの場合
-            // await conn.query(`CREATE TABLE ${tableName}_alt AS SELECT *,
-            //     ST_MakeEnvelope(
-            //         bbox[4],  -- minx
-            //         bbox[2],  -- miny
-            //         bbox[3],  -- maxx
-            //         bbox[1]   -- maxy
-            //     ) as bbox_geom
-            //     FROM ${tableName}`);
-            // await conn.query(`CREATE INDEX ${tableName}_idx ON ${tableName}_alt USING RTREE (geom);`);
-            // await conn.query(`CREATE INDEX ${tableName}_idx_bbox ON ${tableName}_alt USING RTREE (bbox_geom);`);
-
-            // テーブルの作成後にcheckpointを実行
-            await conn.query('CHECKPOINT;');
-            console.log('Table created and checkpoint executed:', tableName);
-            await conn.close();
-            setQueryError(null);
-            // テーブルリストを更新
-            fetchTables();
-        } catch (err) {
-            console.error('Query error:', err);
-            setQueryError(err instanceof Error ? err.message : 'Unknown error occurred');
-        } finally {
-            setIsCreatingTable(false);
-            // テーブル作成中のクラスを削除
-            document.body.classList.remove('creating-table');
-        }
-    };
-
     // テーブル名をクリックしたときの処理
     const handleTableNameClick = (tableName: string) => {
         setVisibleColumns(prev => ({
@@ -222,14 +161,9 @@ function App() {
 
     return (
         <>
-            <div className="card">
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {db && <RemoteResources db={db} onTableCreated={fetchTables} />}
-                <div className="file-upload">
-                    <input type="file" onChange={handleFileChange} accept=".parquet,.geojson,.shp" />
-                    <button onClick={createTableFromFile} disabled={!db || !file || isCreatingTable}>
-                        {isCreatingTable ? 'テーブル作成中...' : 'Create Table from File'}
-                    </button>
-                </div>
+                {db && <LocalFiles db={db} onTableCreated={fetchTables} />}
                 <button onClick={toggleTableList} disabled={!db}>
                     {showTableList ? 'テーブル一覧を隠す' : 'テーブル一覧を表示'}
                 </button>
