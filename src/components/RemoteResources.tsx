@@ -97,13 +97,19 @@ const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated })
             </div>
 
             {show && (
-                <>
+                <div
+                    style={{
+                        backgroundColor: '#f5f5f5', // 薄いグレー
+                        padding: '10px', // 内側の余白
+                        borderRadius: '4px', // 角を丸く
+                    }}
+                >
                     {error && <div className="error">Error: {error}</div>}
                     <div className="file-list">
                         {files.length === 0 ? (
                             <p>No files found</p>
                         ) : (
-                            <table>
+                            <table style={{ width: '100%' }}>
                                 <thead>
                                     <tr>
                                         <th style={{ textAlign: 'left' }}>File Name</th>
@@ -112,16 +118,25 @@ const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated })
                                 </thead>
                                 <tbody>
                                     {files.map(fileName => (
-                                        <tr key={fileName} onClick={() => handleFileClick(fileName)} style={{ cursor: 'pointer' }}>
-                                            <td style={{ textAlign: 'left' }}>{fileName}</td>
-                                            <td>{getFileType(fileName)}</td>
+                                        <tr
+                                            key={fileName}
+                                            onClick={() => handleFileClick(fileName)}
+                                            style={{
+                                                cursor: 'pointer',
+                                                '&:hover': {
+                                                    backgroundColor: '#e8e8e8', // ホバー時の背景色
+                                                },
+                                            }}
+                                        >
+                                            <td style={{ textAlign: 'left', padding: '4px 8px' }}>{fileName}</td>
+                                            <td style={{ padding: '4px 8px' }}>{getFileType(fileName)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         )}
                     </div>
-                </>
+                </div>
             )}
         </div>
     );
