@@ -1,3 +1,4 @@
+import { AsyncDuckDB } from '@duckdb/duckdb-wasm';
 import { useState } from 'react';
 
 interface LocalFilesProps {
@@ -9,6 +10,7 @@ const LocalFiles: React.FC<LocalFilesProps> = ({ db, onTableCreated }) => {
     const [file, setFile] = useState<File | null>(null);
     const [isCreatingTable, setIsCreatingTable] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [show, setShow] = useState(false);
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = event.target.files?.[0] || null;
@@ -57,17 +59,25 @@ const LocalFiles: React.FC<LocalFilesProps> = ({ db, onTableCreated }) => {
 
     return (
         <div className="local-files">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <h3 style={{ textAlign: 'left', margin: 0 }}>Local Files</h3>
-                <div className="file-upload">
-                    <input type="file" onChange={handleFileChange} accept=".parquet,.geojson,.shp" />
-                    <button onClick={createTableFromFile} disabled={!db || !file || isCreatingTable}>
-                        {isCreatingTable ? 'テーブル作成中...' : 'Create Table from File'}
-                    </button>
-                </div>
-                {isCreatingTable && <div style={{ color: '#0066cc', marginLeft: '2px' }}>処理中...</div>}
-                {error && <div style={{ color: 'red' }}>Error: {error}</div>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <h3 style={{ margin: 0 }}>Local Files</h3>
+                <button onClick={() => setShow(!show)} disabled={!db}>
+                    {show ? '隠す' : '表示'}
+                </button>
             </div>
+
+            {show && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div className="file-upload">
+                        <input type="file" onChange={handleFileChange} accept=".parquet,.geojson,.shp" />
+                        <button onClick={createTableFromFile} disabled={!db || !file || isCreatingTable}>
+                            {isCreatingTable ? 'テーブル作成中...' : 'Create Table from File'}
+                        </button>
+                    </div>
+                    {isCreatingTable && <div style={{ color: '#0066cc', marginLeft: '2px' }}>処理中...</div>}
+                    {error && <div style={{ color: 'red' }}>Error: {error}</div>}
+                </div>
+            )}
         </div>
     );
 };
