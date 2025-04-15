@@ -13,6 +13,7 @@ const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated })
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [show, setShow] = useState(true);
 
     useEffect(() => {
         const fetchFiles = async () => {
@@ -87,33 +88,41 @@ const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated })
 
     return (
         <div className="remote-resources">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '30px' }}>
-                <h3 style={{ textAlign: 'left', margin: 0 }}>Remote Files</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <h3 style={{ margin: 0 }}>Remote Files</h3>
+                <button onClick={() => setShow(!show)} disabled={!db}>
+                    {show ? '隠す' : '表示'}
+                </button>
                 {isProcessing && <div style={{ color: '#0066cc' }}>処理中...</div>}
             </div>
-            {error && <div className="error">Error: {error}</div>}
-            <div className="file-list">
-                {files.length === 0 ? (
-                    <p>No files found</p>
-                ) : (
-                    <table>
-                        <thead>
-                            <tr>
-                                <th style={{ textAlign: 'left' }}>File Name</th>
-                                <th>Type</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {files.map(fileName => (
-                                <tr key={fileName} onClick={() => handleFileClick(fileName)} style={{ cursor: 'pointer' }}>
-                                    <td style={{ textAlign: 'left' }}>{fileName}</td>
-                                    <td>{getFileType(fileName)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
+
+            {show && (
+                <>
+                    {error && <div className="error">Error: {error}</div>}
+                    <div className="file-list">
+                        {files.length === 0 ? (
+                            <p>No files found</p>
+                        ) : (
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th style={{ textAlign: 'left' }}>File Name</th>
+                                        <th>Type</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {files.map(fileName => (
+                                        <tr key={fileName} onClick={() => handleFileClick(fileName)} style={{ cursor: 'pointer' }}>
+                                            <td style={{ textAlign: 'left' }}>{fileName}</td>
+                                            <td>{getFileType(fileName)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </>
+            )}
         </div>
     );
 };
