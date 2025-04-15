@@ -9,6 +9,7 @@ import TableList from './components/TableList';
 function App() {
     const { db, error: dbError } = useDuckDB();
     const [selectedTable, setSelectedTable] = useState<string | null>(null);
+    const [showTableList, setShowTableList] = useState(false);
     const [selectedColumns, setSelectedColumns] = useState<Record<string, string[]>>({});
 
     const handleColumnSelect = (tableName: string, columns: string[]) => {
