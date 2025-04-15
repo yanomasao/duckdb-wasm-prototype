@@ -87,8 +87,10 @@ const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated })
 
     return (
         <div className="remote-resources">
-            <h3>Remote Files</h3>
-            {isProcessing && <div>Processing file...</div>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '30px' }}>
+                <h3 style={{ textAlign: 'left', margin: 0 }}>Remote Files</h3>
+                {isProcessing && <div style={{ color: '#0066cc' }}>処理中...</div>}
+            </div>
             {error && <div className="error">Error: {error}</div>}
             <div className="file-list">
                 {files.length === 0 ? (
