@@ -322,7 +322,14 @@ function App() {
                     </div>
                 )}
             </div>
-            {db && <MapComponent db={db} selectedTable={selectedTable} selectedColumns={selectedColumns[selectedTable || ''] || []} />}
+            {db && (
+                <MapComponent
+                    key={selectedTable || 'no-table'}
+                    db={db}
+                    selectedTable={selectedTable}
+                    selectedColumns={selectedColumns[selectedTable || ''] || []}
+                />
+            )}
         </>
     );
 }
