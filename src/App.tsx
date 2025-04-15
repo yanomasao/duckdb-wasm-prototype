@@ -9,8 +9,8 @@ import TableList from './components/TableList';
 function App() {
     const { db, error: dbError } = useDuckDB();
     const [selectedTable, setSelectedTable] = useState<string | null>(null);
-    const [showTableList, setShowTableList] = useState(false);
     const [selectedColumns, setSelectedColumns] = useState<Record<string, string[]>>({});
+    const [shouldRefreshTables, setShouldRefreshTables] = useState(0);
 
     const handleColumnSelect = (tableName: string, columns: string[]) => {
         setSelectedColumns(prev => ({
@@ -22,8 +22,8 @@ function App() {
     return (
         <>
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {db && <RemoteResources db={db} onTableCreated={() => setShowTableList(true)} />}
-                {db && <LocalFiles db={db} onTableCreated={() => setShowTableList(true)} />}
+                {db && <RemoteResources db={db} onTableCreated={() => setShouldRefreshTables(prev => prev + 1)} />}
+                {db && <LocalFiles db={db} onTableCreated={() => setShouldRefreshTables(prev => prev + 1)} />}
                 {db && (
                     <TableList
                         db={db}
@@ -31,6 +31,7 @@ function App() {
                         onTableSelect={setSelectedTable}
                         selectedColumns={selectedColumns}
                         onColumnSelect={handleColumnSelect}
+                        key={shouldRefreshTables}
                     />
                 )}
             </div>

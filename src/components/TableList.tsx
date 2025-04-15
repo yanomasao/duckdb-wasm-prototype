@@ -8,6 +8,7 @@ interface TableListProps {
     onTableSelect: (tableName: string) => void;
     selectedColumns: Record<string, string[]>;
     onColumnSelect: (tableName: string, columns: string[]) => void;
+    onTableCreated?: () => void;
 }
 
 interface TableInfo {
@@ -20,8 +21,8 @@ interface ColumnInfo {
     type: string;
 }
 
-const TableList: React.FC<TableListProps> = ({ db, selectedTable, onTableSelect, selectedColumns, onColumnSelect }) => {
-    const [show, setShow] = useState(false);
+const TableList: React.FC<TableListProps> = ({ db, selectedTable, onTableSelect, selectedColumns, onColumnSelect, onTableCreated }) => {
+    const [show, setShow] = useState(true);
     const [tables, setTables] = useState<TableInfo[]>([]);
     const [tableColumns, setTableColumns] = useState<Record<string, ColumnInfo[]>>({});
     const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
@@ -81,10 +82,11 @@ const TableList: React.FC<TableListProps> = ({ db, selectedTable, onTableSelect,
     };
 
     useEffect(() => {
-        if (show) {
-            fetchTables();
+        if (onTableCreated) {
+            onTableCreated();
         }
-    }, [show, db]);
+        fetchTables();
+    }, [db]);
 
     const handleTableNameClick = (tableName: string) => {
         setVisibleColumns(prev => ({
