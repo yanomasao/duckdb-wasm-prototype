@@ -45,14 +45,14 @@ const RemoteResources = () => {
                     <table>
                         <thead>
                             <tr>
-                                <th>File Name</th>
+                                <th style={{ textAlign: 'left' }}>File Name</th>
                                 <th>Type</th>
                             </tr>
                         </thead>
                         <tbody>
                             {files.map(fileName => (
                                 <tr key={fileName}>
-                                    <td>{fileName}</td>
+                                    <td style={{ textAlign: 'left' }}>{fileName}</td>
                                     <td>{getFileType(fileName)}</td>
                                 </tr>
                             ))}
