@@ -48,6 +48,8 @@ const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated })
     }, []);
 
     const handleFileClick = async (fileName: string) => {
+        const startHandleTime = new Date();
+        console.log(`計測 ${startHandleTime.toISOString()} start handleFileClick ${isProcessing}`);
         if (isProcessing || !db) return;
         setIsProcessing(true);
         setError(null);
@@ -55,9 +57,13 @@ const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated })
         const conn = await db.connect();
         try {
             // まず1回だけデータを取得
+            const startFetchTime = new Date();
+            console.log(`計測 ${startFetchTime.toISOString()} start fetch`);
             const response = await fetch(`${remoteUrl}/api/parquet_stream?file=${encodeURIComponent(fileName)}`);
             const blob = await response.blob();
-            // const file = new File([blob], fileName);
+            const endFetchTime = new Date();
+            const elapsedFetchMs = endFetchTime.getTime() - startFetchTime.getTime();
+            console.log(`計測 ${endFetchTime.toISOString()} end fetch, elapsed: ${elapsedFetchMs}ms`);
 
             const tableName = fileName
                 .split('.')[0]
@@ -75,26 +81,38 @@ const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated })
             console.log(`計測 ${startTime.toISOString()} start create table`);
 
             // ファイルを DuckDB に登録
-            await db.registerFileBuffer(fileName, new Uint8Array(await blob.arrayBuffer()));
+            const temporaryFile = 'tmpFile';
+            await db.registerFileBuffer(temporaryFile, new Uint8Array(await blob.arrayBuffer()));
 
             // 登録したファイルからテーブルを作成
             await conn.query(`
                     CREATE TABLE "${tableName}" AS 
-                    SELECT * FROM read_parquet('${fileName}')
+                    SELECT *  EXCLUDE (bbox), 
+                        ST_MakeEnvelope(
+                            bbox[4],  -- minx
+                            bbox[2],  -- miny
+                            bbox[3],  -- maxx
+                            bbox[1]   -- maxy
+                        ) as bbox
+                    FROM read_parquet('${temporaryFile}')
                 `);
 
             const endTime = new Date();
             const elapsedMs = endTime.getTime() - startTime.getTime();
             console.log(`計測 ${endTime.toISOString()} end create table, elapsed: ${elapsedMs}ms`);
 
-            const columns = await conn.query(`DESCRIBE "${tableName}"`);
-            const hasGeom = columns.toArray().some(row => row.column_name === 'geom');
-            if (hasGeom) {
-                await conn.query(`CREATE INDEX "${tableName}_idx" ON "${tableName}" USING RTREE (geom)`);
-            }
-
+            // const columns = await conn.query(`DESCRIBE "${tableName}"`);
+            // const hasGeom = columns.toArray().some(row => row.column_name === 'geom');
+            // if (hasGeom) {
+            await conn.query(`CREATE INDEX "idx_${tableName}_geom" ON "${tableName}" USING RTREE (geom)`);
+            await conn.query(`CREATE INDEX "idx_${tableName}_bbox" ON "${tableName}" USING RTREE (bbox)`);
+            // }
             console.log(`Table "${tableName}" created successfully`);
             onTableCreated?.();
+
+            const endHandleTime = new Date();
+            const elapsedHandleMs = endHandleTime.getTime() - startHandleTime.getTime();
+            console.log(`計測 ${endHandleTime.toISOString()} end handleFileClick, elapsed: ${elapsedHandleMs}ms`);
         } catch (err) {
             console.error('Error processing file:', err);
             setError(err instanceof Error ? err.message : 'Failed to process file');
