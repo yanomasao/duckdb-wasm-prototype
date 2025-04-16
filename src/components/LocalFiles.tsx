@@ -67,7 +67,16 @@ const LocalFiles: React.FC<LocalFilesProps> = ({ db, onTableCreated }) => {
             </div>
 
             {show && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div
+                    style={{
+                        backgroundColor: '#f5f5f5',
+                        padding: '10px',
+                        borderRadius: '4px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                    }}
+                >
                     <div className="file-upload">
                         <input type="file" onChange={handleFileChange} accept=".parquet,.geojson,.shp" />
                         <button onClick={createTableFromFile} disabled={!db || !file || isCreatingTable}>
