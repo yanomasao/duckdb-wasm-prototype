@@ -158,9 +158,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                     // キャッシュをチェック
                     // console.log('Cache get key:', cacheKey);
                     if (tileCache.current.has(cacheKey)) {
-                        const endTime = new Date();
-                        const elapsedMs = endTime.getTime() - addProtocolTime.getTime();
-                        console.log(`cache io using cached tile: ${cacheKey}, elapsed: ${elapsedMs}ms`);
+                        console.log(`計測 ${cacheKey} 2 using cached tile`);
                         return { data: tileCache.current.get(cacheKey) };
                     }
 
@@ -207,7 +205,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         console.log(`計測 ${cacheKey} 3 ${queryEndTime.toISOString()} end duckdb query, elapsed: ${queryElapsedMs}ms ${result.numRows} rows`);
 
                         if (result.numRows === 0) {
-                            console.log('No data found for this tile');
+                            console.log(`計測 ${cacheKey} 3 No data found for this tile`);
                             console.log('cache io set key:', cacheKey);
                             tileCache.current.set(cacheKey, new Uint8Array());
                             return { data: new Uint8Array() };
@@ -254,7 +252,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         // console.log('Processed features:', features);
 
                         if (features.length === 0) {
-                            console.log('No valid features found');
+                            console.log(`計測 ${cacheKey} 6 No valid features found`);
                             console.log('cache io set key:', cacheKey);
                             tileCache.current.set(cacheKey, new Uint8Array());
                             return { data: new Uint8Array() };
