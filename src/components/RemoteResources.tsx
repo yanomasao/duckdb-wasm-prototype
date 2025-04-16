@@ -1,5 +1,5 @@
 import { AsyncDuckDB } from '@duckdb/duckdb-wasm';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface RemoteResourcesProps {
     db: AsyncDuckDB;
@@ -14,6 +14,7 @@ const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated })
     const [isLoading, setIsLoading] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [show, setShow] = useState(true);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         const fetchFiles = async () => {
@@ -37,52 +38,69 @@ const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated })
         fetchFiles();
     }, []);
 
+    useEffect(() => {
+        return () => {
+            // コンポーネントのアンマウント時に実行中のリクエストをキャンセル
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, []);
+
     const handleFileClick = async (fileName: string) => {
         if (isProcessing || !db) return;
         setIsProcessing(true);
         setError(null);
 
+        const conn = await db.connect();
         try {
-            const conn = await db.connect();
+            // まず1回だけデータを取得
+            const response = await fetch(`${remoteUrl}/api/parquet_stream?file=${encodeURIComponent(fileName)}`);
+            const blob = await response.blob();
+            // const file = new File([blob], fileName);
 
-            // テーブル名を生成（日本語を含むファイル名を適切に処理）
-            let tableName = fileName
-                .split('.')[0] // 拡張子を除去
-                .replace(/[^a-zA-Z0-9_\u3000-\u9FFF]/g, '_') // 日本語とアルファベット、数字、アンダースコア以外を'_'に変換
-                .replace(/^(\d)/, 't_$1'); // 数字で始まる場合、't_'をプレフィックスとして追加
+            const tableName = fileName
+                .split('.')[0]
+                .replace(/[^a-zA-Z0-9_\u3000-\u9FFF]/g, '_')
+                .replace(/^(\d)/, 't_$1');
 
-            try {
-                // 既存のテーブルを削除（存在する場合）
-                await conn.query(`DROP TABLE IF EXISTS "${tableName}"`);
+            const startDropTime = new Date();
+            console.log(`計測 ${startDropTime.toISOString()} start drop table`);
+            await conn.query(`DROP TABLE IF EXISTS "${tableName}"`);
+            const endDropTime = new Date();
+            const elapsedDropMs = endDropTime.getTime() - startDropTime.getTime();
+            console.log(`計測 ${endDropTime.toISOString()} end drop table, elapsed: ${elapsedDropMs}ms`);
 
-                // URLから直接テーブルを作成
-                const startTime = new Date();
-                console.log(`計測 ${startTime.toISOString()} start create table`);
-                await conn.query(`
+            const startTime = new Date();
+            console.log(`計測 ${startTime.toISOString()} start create table`);
+
+            // ファイルを DuckDB に登録
+            await db.registerFileBuffer(fileName, new Uint8Array(await blob.arrayBuffer()));
+
+            // 登録したファイルからテーブルを作成
+            await conn.query(`
                     CREATE TABLE "${tableName}" AS 
-                    SELECT * FROM read_parquet('${remoteUrl}/api/parquet_stream?file=${encodeURIComponent(fileName)}')
+                    SELECT * FROM read_parquet('${fileName}')
                 `);
-                const endTime = new Date();
-                const elapsedMs = endTime.getTime() - startTime.getTime();
-                console.log(`計測 ${endTime.toISOString()} end create table, elapsed: ${elapsedMs}ms`);
 
-                // 空間インデックスを作成（geomカラムが存在する場合）
-                const columns = await conn.query(`DESCRIBE "${tableName}"`);
-                const hasGeom = columns.toArray().some(row => row.column_name === 'geom');
-                if (hasGeom) {
-                    await conn.query(`CREATE INDEX "${tableName}_idx" ON "${tableName}" USING RTREE (geom)`);
-                }
+            const endTime = new Date();
+            const elapsedMs = endTime.getTime() - startTime.getTime();
+            console.log(`計測 ${endTime.toISOString()} end create table, elapsed: ${elapsedMs}ms`);
 
-                console.log(`Table "${tableName}" created successfully`);
-                onTableCreated?.(); // 親コンポーネントに通知
-            } finally {
-                await conn.close();
+            const columns = await conn.query(`DESCRIBE "${tableName}"`);
+            const hasGeom = columns.toArray().some(row => row.column_name === 'geom');
+            if (hasGeom) {
+                await conn.query(`CREATE INDEX "${tableName}_idx" ON "${tableName}" USING RTREE (geom)`);
             }
+
+            console.log(`Table "${tableName}" created successfully`);
+            onTableCreated?.();
         } catch (err) {
             console.error('Error processing file:', err);
             setError(err instanceof Error ? err.message : 'Failed to process file');
         } finally {
             setIsProcessing(false);
+            await conn.close();
         }
     };
 
