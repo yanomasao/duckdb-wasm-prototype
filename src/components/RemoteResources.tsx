@@ -87,13 +87,14 @@ const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated })
             // 登録したファイルからテーブルを作成
             await conn.query(`
                     CREATE TABLE "${tableName}" AS 
-                    SELECT *  EXCLUDE (bbox), 
-                        ST_MakeEnvelope(
-                            bbox[4],  -- minx
-                            bbox[2],  -- miny
-                            bbox[3],  -- maxx
-                            bbox[1]   -- maxy
-                        ) as bbox
+                    SELECT * 
+                        -- EXCLUDE (bbox), 
+                        -- ST_MakeEnvelope(
+                        --     bbox[4],  -- minx
+                        --     bbox[2],  -- miny
+                        --     bbox[3],  -- maxx
+                        --     bbox[1]   -- maxy
+                        -- ) as bbox
                     FROM read_parquet('${temporaryFile}')
                 `);
 
