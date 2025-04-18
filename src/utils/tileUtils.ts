@@ -391,4 +391,38 @@ function getMVTType(geojsonType: string): number {
         default:
             return 0;
     }
-} 
+}
+
+export interface TileBounds {
+    minLng: number;
+    maxLng: number;
+    minLat: number;
+    maxLat: number;
+}
+
+export const calcTileLngLat = (z: number, x: number, y: number): TileBounds => {
+    const n = Math.pow(2, z);
+
+    // 経度の計算
+    let minLng = (x / n) * 360 - 180;
+    let maxLng = ((x + 1) / n) * 360 - 180;
+
+    // 緯度の計算
+    let minLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + 1)) / n))) * (180 / Math.PI);
+    let maxLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n))) * (180 / Math.PI);
+
+    // 緯度の範囲を制限（-85.0511287798066から85.0511287798066）
+    minLat = Math.max(minLat, -85.0511287798066);
+    maxLat = Math.min(maxLat, 85.0511287798066);
+
+    // 経度の範囲を-180から180に正規化
+    if (minLng < -180) minLng += 360;
+    if (maxLng > 180) maxLng -= 360;
+
+    // 緯度の順序を保証
+    if (minLat > maxLat) {
+        [minLat, maxLat] = [maxLat, minLat];
+    }
+
+    return { minLng, maxLng, minLat, maxLat };
+}; 

@@ -3,6 +3,7 @@ import { Feature, GeoJsonProperties, Geometry } from 'geojson';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import React, { useEffect, useRef, useState } from 'react';
+import { getTileEnvelope } from '../utils/tileUtils';
 import { geojsonToVectorTile } from '../utils/vectorTileUtils';
 
 interface DuckDBConnection {
@@ -32,6 +33,13 @@ interface TileParams {
 interface QueryParams extends TileParams {
     selectedTable: string;
     selectedColumns: string[];
+}
+
+interface TileBounds {
+    minLng: number;
+    maxLng: number;
+    minLat: number;
+    maxLat: number;
 }
 
 const calculateSimplifyTolerance = (zoomLevel: number): number => {
@@ -169,11 +177,8 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                             throw new Error('Database connection is not available');
                         }
 
-                        const n = Math.pow(2, z);
-                        const minLng = (x / n) * 360 - 180;
-                        const maxLng = ((x + 1) / n) * 360 - 180;
-                        const minLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n))) * (180 / Math.PI);
-                        const maxLat = Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + 1)) / n))) * (180 / Math.PI);
+                        // const { minLng, maxLng, minLat, maxLat } = calcTileLngLat(z, x, y);
+                        const [minLng, minLat, maxLng, maxLat] = getTileEnvelope(z, x, y);
 
                         console.log(`Tile bounds: minLng=${minLng}, maxLng=${maxLng}, minLat=${minLat}, maxLat=${maxLat}`);
 
