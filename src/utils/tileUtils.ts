@@ -8,6 +8,9 @@ export interface TileBounds {
     maxLat: number;
 }
 
+// メモ化用のキャッシュ
+const tileEnvelopeCache = new Map<string, TileBounds>();
+
 /**
  * Calculate the bounding box coordinates for a given tile (zoom, x, y) in WGS84 (EPSG:4326)
  * Similar to PostGIS ST_TileEnvelope
@@ -17,15 +20,43 @@ export interface TileBounds {
  * @returns Array of [west, south, east, north] coordinates in WGS84
  */
 export function getTileEnvelope(zoom: number, x: number, y: number): TileBounds {
-    const n = Math.pow(2, zoom);
-    const west = (x / n) * 360 - 180;
-    const east = ((x + 1) / n) * 360 - 180;
-    const lat1 = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) * 180 / Math.PI;
-    const lat2 = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y + 1) / n))) * 180 / Math.PI;
-    const north = Math.max(lat1, lat2);
-    const south = Math.min(lat1, lat2);
+    // キャッシュキーの生成
+    const cacheKey = `${zoom}/${x}/${y}`;
 
-    return { minLng: west, minLat: south, maxLng: east, maxLat: north };
+    // キャッシュをチェック
+    const cached = tileEnvelopeCache.get(cacheKey);
+    if (cached) {
+        return cached;
+    }
+
+    // 事前計算された定数
+    const n = 1 << zoom; // Math.pow(2, zoom) の代わりにビットシフトを使用
+    const invN = 1 / n;
+    const PI_180 = Math.PI / 180;
+    const _180_PI = 180 / Math.PI;
+
+    // 経度の計算
+    const west = x * invN * 360 - 180;
+    const east = (x + 1) * invN * 360 - 180;
+
+    // 緯度の計算
+    const y1 = 1 - 2 * y * invN;
+    const y2 = 1 - 2 * (y + 1) * invN;
+    const lat1 = Math.atan(Math.sinh(Math.PI * y1)) * _180_PI;
+    const lat2 = Math.atan(Math.sinh(Math.PI * y2)) * _180_PI;
+
+    // 結果の作成
+    const result = {
+        minLng: west,
+        minLat: Math.min(lat1, lat2),
+        maxLng: east,
+        maxLat: Math.max(lat1, lat2)
+    };
+
+    // キャッシュに保存
+    tileEnvelopeCache.set(cacheKey, result);
+
+    return result;
 }
 
 /**
