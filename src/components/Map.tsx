@@ -177,8 +177,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                             throw new Error('Database connection is not available');
                         }
 
-                        // const { minLng, maxLng, minLat, maxLat } = calcTileLngLat(z, x, y);
-                        const [minLng, minLat, maxLng, maxLat] = getTileEnvelope(z, x, y);
+                        const { minLng, minLat, maxLng, maxLat } = getTileEnvelope(z, x, y);
 
                         console.log(`Tile bounds: minLng=${minLng}, maxLng=${maxLng}, minLat=${minLat}, maxLat=${maxLat}`);
 
