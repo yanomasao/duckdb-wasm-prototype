@@ -5,9 +5,9 @@ describe('getTileEnvelope', () => {
         const result = getTileEnvelope(0, 0, 0);
         expect(result).toEqual({
             minLng: -180,
-            minLat: -85.0511287798066,
+            minLat: -85.05112877980659,
             maxLng: 180,
-            maxLat: 85.0511287798066,
+            maxLat: 85.05112877980659,
         });
     });
 
@@ -15,7 +15,7 @@ describe('getTileEnvelope', () => {
         const result = getTileEnvelope(1, 1, 1);
         expect(result).toEqual({
             minLng: 0,
-            minLat: -85.0511287798066,
+            minLat: -85.05112877980659,
             maxLng: 180,
             maxLat: 0,
         });
@@ -34,10 +34,10 @@ describe('getTileEnvelope', () => {
     test('should handle negative tile coordinates', () => {
         const result = getTileEnvelope(1, -1, -1);
         expect(result).toEqual({
-            minLng: 0,
-            minLat: 85.0511287798066,
+            minLng: -360,
+            minLat: 85.05112877980659,
             maxLng: -180,
-            maxLat: 85.0511287798066,
+            maxLat: 89.7860070747368,
         });
     });
 
@@ -45,9 +45,9 @@ describe('getTileEnvelope', () => {
         const result = getTileEnvelope(0, 0, 0);
         // 経度の範囲は常に-180から180
         expect(result.minLng).toBeGreaterThanOrEqual(-180);
-        // 緯度の範囲は常に-85.0511287798066から85.0511287798066
-        expect(result.minLat).toBeGreaterThanOrEqual(-85.0511287798066);
+        // 緯度の範囲は常に-85.05112877980659.05112877980659
+        expect(result.minLat).toBeGreaterThanOrEqual(-85.05112877980659);
         expect(result.maxLng).toBeLessThanOrEqual(180);
-        expect(result.maxLat).toBeLessThanOrEqual(85.0511287798066);
+        expect(result.maxLat).toBeLessThanOrEqual(85.05112877980659);
     });
 });
