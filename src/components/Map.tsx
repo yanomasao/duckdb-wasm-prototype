@@ -78,24 +78,24 @@ const generateVectorTileQuery = (params: QueryParams): string => {
     console.log(`z: ${z}, simplify level: ${simplify}`);
 
     return `
-        SELECT 
-            ST_AsGeoJSON(
-                -- geom
-                ST_Simplify(
-                -- ST_SimplifyPreserveTopology(
-                --    ST_Intersection(ST_MakeValid(geom), ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})),
-                    geom,
-                    ${simplify}
-                )
-            ) AS geojson,
-            ${columns}
-        FROM ${selectedTable}
-        WHERE ST_Intersects(
-            geom,
-            -- bbox_geom,
-            -- ST_MakeEnvelope(bbox[1], bbox[2], bbox[3], bbox[4]),
-            ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
-        )
+--         SELECT 
+--             ST_AsGeoJSON(
+--                 -- geom
+--                 ST_Simplify(
+--                 -- ST_SimplifyPreserveTopology(
+--                 --    ST_Intersection(ST_MakeValid(geom), ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})),
+--                     geom,
+--                     ${simplify}
+--                 )
+--             ) AS geojson,
+--             ${columns}
+--         FROM ${selectedTable}
+--         WHERE ST_Intersects(
+--             geom,
+--             -- bbox_geom,
+--             -- ST_MakeEnvelope(bbox[1], bbox[2], bbox[3], bbox[4]),
+--             ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
+--         )
         -- AND (
         --     -- ポリゴンの場合、ズームレベルに応じて面積でフィルタリング
         --     (st_geometrytype(geom) = 'POLYGON' AND 
@@ -109,14 +109,39 @@ const generateVectorTileQuery = (params: QueryParams): string => {
         --     -- ラインストリングとポイントは常に表示
         --     OR st_geometrytype(geom) IN ('LINESTRING', 'POINT')
         -- )
+        WITH filtered AS (
+            -- 空間フィルタリングを先に実行
+            SELECT 
+                geom,
+                ${columns}
+            FROM ${selectedTable}
+            WHERE ST_Intersects(
+                geom,
+                ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
+            )
+        )
+        SELECT 
+            ST_AsGeoJSON(
+                ST_Simplify(geom, ${simplify})
+            ) AS geojson,
+            ${columns}
+        FROM filtered
     `;
 };
 
 const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }) => {
     const [mapError, setMapError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [selectedZoom, setSelectedZoom] = useState<number>(5); // デフォルトズームレベル
+    const mapRef = useRef<maplibregl.Map | null>(null);
     const connectionRef = useRef<DuckDBConnection | null>(null);
     const tileCache = useRef<Map<string, Uint8Array>>(new Map());
+
+    // ズームレベル変更ハンドラー
+    const handleZoomChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        const newZoom = parseInt(event.target.value, 10);
+        setSelectedZoom(newZoom);
+    };
 
     useEffect(() => {
         const startTime = new Date();
@@ -289,8 +314,8 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         console.log(`計測 ${cacheKey} 8 ${endTime.toISOString()} end addProtocol, total elapsed: ${totalElapsedMs}ms`);
                         return { data: returnData };
                     } catch (error) {
-                        console.log('cache io set key:', cacheKey);
-                        tileCache.current.set(cacheKey, new Uint8Array());
+                        // console.log('cache io set key:', cacheKey);
+                        // tileCache.current.set(cacheKey, new Uint8Array());
                         console.error('Error processing tile:', error);
                         return { data: new Uint8Array() };
                     }
@@ -299,7 +324,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                 // マップの初期化
                 const mapInstance = new maplibregl.Map({
                     container: 'map',
-                    zoom: 4,
+                    zoom: selectedZoom, // 初期ズームレベルを状態から設定
                     center: [139.7482, 35.6591], // 東京付近の座標
                     style: {
                         version: 8,
@@ -371,6 +396,8 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         ],
                     },
                 });
+
+                mapRef.current = mapInstance; // マップインスタンスを保存
 
                 // マップの読み込み完了時の処理
                 mapInstance.on('load', () => {
@@ -496,7 +523,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
         };
 
         initMap();
-    }, [db, selectedTable, selectedColumns]);
+    }, [db, selectedTable, selectedColumns, selectedZoom]);
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
@@ -511,6 +538,35 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                     transform: 'translate(-50%, -50%)',
                 }}
             ></div>
+            {/* ズームレベル選択 */}
+            <div
+                style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    zIndex: 1,
+                    background: 'white',
+                    padding: '5px',
+                    borderRadius: '5px',
+                    boxShadow: '0 0 10px rgba(0,0,0,0.1)',
+                }}
+            >
+                <select
+                    value={selectedZoom}
+                    onChange={handleZoomChange}
+                    style={{
+                        padding: '5px',
+                        borderRadius: '4px',
+                        border: '1px solid #ccc',
+                    }}
+                >
+                    {Array.from({ length: 31 }, (_, i) => (
+                        <option key={i} value={i}>
+                            ズームレベル {i}
+                        </option>
+                    ))}
+                </select>
+            </div>
             {isLoading && (
                 <div
                     style={{
