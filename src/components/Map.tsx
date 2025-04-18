@@ -35,13 +35,6 @@ interface QueryParams extends TileParams {
     selectedColumns: string[];
 }
 
-interface TileBounds {
-    minLng: number;
-    maxLng: number;
-    minLat: number;
-    maxLat: number;
-}
-
 const calculateSimplifyTolerance = (zoomLevel: number): number => {
     // ズームレベル15以上は簡略化なし
     if (zoomLevel >= 15) return 0;
