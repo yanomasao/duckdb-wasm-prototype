@@ -4,6 +4,9 @@
 	"name": "Node.js & TypeScript",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+	"features": {
+		"ghcr.io/eitsupi/devcontainer-features/duckdb-cli:1": {}
+	},
 	"customizations": {
 		"vscode": {
 			"extensions": [
