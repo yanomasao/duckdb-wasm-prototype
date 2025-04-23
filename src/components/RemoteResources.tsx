@@ -59,7 +59,7 @@ const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated })
             // まず1回だけデータを取得
             const startFetchTime = new Date();
             console.log(`計測 ${startFetchTime.toISOString()} start fetch`);
-            const response = await fetch(`${remoteUrl}/api/parquet_stream?file=${encodeURIComponent(fileName)}`);
+            const response = await fetch(`${remoteUrl}/api/parquet/stream?file=${encodeURIComponent(fileName)}`);
             const blob = await response.blob();
             const endFetchTime = new Date();
             const elapsedFetchMs = endFetchTime.getTime() - startFetchTime.getTime();
@@ -102,12 +102,17 @@ const RemoteResources: React.FC<RemoteResourcesProps> = ({ db, onTableCreated })
             const elapsedMs = endTime.getTime() - startTime.getTime();
             console.log(`計測 ${endTime.toISOString()} end create table, elapsed: ${elapsedMs}ms`);
 
+            const startIndexTime = new Date();
+            console.log(`計測 ${startIndexTime.toISOString()} start index table`);
             // const columns = await conn.query(`DESCRIBE "${tableName}"`);
             // const hasGeom = columns.toArray().some(row => row.column_name === 'geom');
             // if (hasGeom) {
             await conn.query(`CREATE INDEX "idx_${tableName}_geom" ON "${tableName}" USING RTREE (geom)`);
             await conn.query(`CREATE INDEX "idx_${tableName}_bbox" ON "${tableName}" USING RTREE (bbox)`);
             // }
+            const endIndexTime = new Date();
+            const elapsedIndexMs = endIndexTime.getTime() - startIndexTime.getTime();
+            console.log(`計測 ${endIndexTime.toISOString()} end index table, elapsed: ${elapsedIndexMs}ms`);
             console.log(`Table "${tableName}" created successfully`);
             onTableCreated?.();
 
