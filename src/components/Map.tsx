@@ -85,7 +85,7 @@ const generateVectorTileQuery = (params: QueryParams): string => {
 --         FROM ${selectedTable}
 --         WHERE ST_Intersects(
 --             geom,
---             -- bbox_geom,
+--             -- bbox,
 --             -- ST_MakeEnvelope(bbox[1], bbox[2], bbox[3], bbox[4]),
 --             ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
 --         )
