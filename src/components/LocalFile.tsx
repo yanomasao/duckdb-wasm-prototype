@@ -1,12 +1,12 @@
 import { AsyncDuckDB } from '@duckdb/duckdb-wasm';
 import { useState } from 'react';
 
-interface LocalFilesProps {
+interface LocalFileProps {
     db: AsyncDuckDB;
     onTableCreated?: () => void;
 }
 
-const LocalFiles: React.FC<LocalFilesProps> = ({ db, onTableCreated }) => {
+const LocalFile: React.FC<LocalFileProps> = ({ db, onTableCreated }) => {
     const [file, setFile] = useState<File | null>(null);
     const [isCreatingTable, setIsCreatingTable] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -60,7 +60,7 @@ const LocalFiles: React.FC<LocalFilesProps> = ({ db, onTableCreated }) => {
     return (
         <div className="local-files">
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                <h3 style={{ margin: 0 }}>Local Files</h3>
+                <h3 style={{ margin: 0 }}>Local File</h3>
                 <button onClick={() => setShow(!show)} disabled={!db}>
                     {show ? '隠す' : '表示'}
                 </button>
@@ -91,4 +91,4 @@ const LocalFiles: React.FC<LocalFilesProps> = ({ db, onTableCreated }) => {
     );
 };
 
-export default LocalFiles;
+export default LocalFile;
