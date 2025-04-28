@@ -1,4 +1,4 @@
-import { AsyncDuckDB } from '@duckdb/duckdb-wasm';
+import { AsyncDuckDB, AsyncPreparedStatement } from '@duckdb/duckdb-wasm';
 import { Feature, GeoJsonProperties, Geometry } from 'geojson';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -11,6 +11,7 @@ interface DuckDBConnection {
         numRows: number;
         toArray: () => Array<{ geojson: string }>;
     }>;
+    prepare: (sql: string) => Promise<AsyncPreparedStatement>;
     close: () => Promise<void>;
 }
 
@@ -24,10 +25,6 @@ interface TileParams {
     z: number;
     x: number;
     y: number;
-    minLng: number;
-    maxLng: number;
-    minLat: number;
-    maxLat: number;
 }
 
 interface QueryParams extends TileParams {
@@ -64,7 +61,7 @@ const calculateSimplifyTolerance = (zoomLevel: number): number => {
 };
 
 const generateVectorTileQuery = (params: QueryParams): string => {
-    const { z, minLng, maxLng, minLat, maxLat, selectedTable, selectedColumns } = params;
+    const { z, selectedTable, selectedColumns } = params;
     const columns = selectedColumns.length > 0 ? selectedColumns.join(', ') : '1 as dummy';
     const simplify = calculateSimplifyTolerance(z);
 
@@ -76,7 +73,7 @@ const generateVectorTileQuery = (params: QueryParams): string => {
 --                 -- geom
 --                 ST_Simplify(
 --                 -- ST_SimplifyPreserveTopology(
---                 --    ST_Intersection(ST_MakeValid(geom), ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})),
+--                 --    ST_Intersection(ST_MakeValid(geom), ST_MakeEnvelope(?, ?, ?, ?)),
 --                     geom,
 --                     ${simplify}
 --                 )
@@ -87,7 +84,7 @@ const generateVectorTileQuery = (params: QueryParams): string => {
 --             geom,
 --             -- bbox,
 --             -- ST_MakeEnvelope(bbox[1], bbox[2], bbox[3], bbox[4]),
---             ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
+--             ST_MakeEnvelope(?, ?, ?, ?)
 --         )
         -- AND (
         --     -- ポリゴンの場合、ズームレベルに応じて面積でフィルタリング
@@ -109,8 +106,9 @@ const generateVectorTileQuery = (params: QueryParams): string => {
                 ${columns}
             FROM ${selectedTable}
             WHERE ST_Intersects(
-                geom,
-                ST_MakeEnvelope(${minLng}, ${minLat}, ${maxLng}, ${maxLat})
+                -- geom,
+                bbox,
+                ST_MakeEnvelope(?, ?, ?, ?)
             )
         )
         SELECT 
@@ -209,18 +207,16 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                             z,
                             x,
                             y,
-                            minLng,
-                            maxLng,
-                            minLat,
-                            maxLat,
                             selectedTable,
                             selectedColumns,
                         });
-
+                        console.log('query: ' + query);
                         const queryStartTime = new Date();
                         console.log('Executing query:', query);
                         console.log(`計測 ${cacheKey} 2 ${queryStartTime.toISOString()} start duckdb query`);
-                        const result = await connectionRef.current.query(query);
+                        // const conn = await db.connect();
+                        const stmt = await connectionRef.current.prepare(query);
+                        const result = await stmt.query(minLng, minLat, maxLng, maxLat);
                         const queryEndTime = new Date();
                         const queryElapsedMs = queryEndTime.getTime() - queryStartTime.getTime();
                         console.log(`Query returned ${result.numRows} rows`);
