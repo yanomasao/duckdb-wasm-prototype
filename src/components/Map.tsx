@@ -68,37 +68,6 @@ const generateVectorTileQuery = (params: QueryParams): string => {
     console.log(`z: ${z}, simplify level: ${simplify}`);
 
     return `
---         SELECT 
---             ST_AsGeoJSON(
---                 -- geom
---                 ST_Simplify(
---                 -- ST_SimplifyPreserveTopology(
---                 --    ST_Intersection(ST_MakeValid(geom), ST_MakeEnvelope(?, ?, ?, ?)),
---                     geom,
---                     ${simplify}
---                 )
---             ) AS geojson,
---             ${columns}
---         FROM ${selectedTable}
---         WHERE ST_Intersects(
---             geom,
---             -- bbox,
---             -- ST_MakeEnvelope(bbox[1], bbox[2], bbox[3], bbox[4]),
---             ST_MakeEnvelope(?, ?, ?, ?)
---         )
-        -- AND (
-        --     -- ポリゴンの場合、ズームレベルに応じて面積でフィルタリング
-        --     (st_geometrytype(geom) = 'POLYGON' AND 
-        --         CASE 
-        --             WHEN ${z} = 0 THEN ST_Area(geom) > 1.0
-        --             WHEN ${z} <= 5 THEN ST_Area(geom) > 0.5
-        --             WHEN ${z} <= 10 THEN ST_Area(geom) > 0.25
-        --             ELSE true
-        --         END
-        --     )
-        --     -- ラインストリングとポイントは常に表示
-        --     OR st_geometrytype(geom) IN ('LINESTRING', 'POINT')
-        -- )
         WITH filtered AS (
             -- 空間フィルタリングを先に実行
             SELECT 
