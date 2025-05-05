@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import './App.css';
-import LocalFile from './components/LocalFile';
 import MapComponent from './components/Map';
 import RemoteFile from './components/RemoteFile';
-import RemoteResources from './components/RemoteResources';
 import TableList from './components/TableList';
 import { useDuckDB } from './hooks/useDuckDB';
 
@@ -23,9 +21,7 @@ function App() {
     return (
         <>
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {db && <RemoteResources db={db} onTableCreated={() => setShouldRefreshTables(prev => prev + 1)} />}
                 {db && <RemoteFile db={db} onTableCreated={() => setShouldRefreshTables(prev => prev + 1)} />}
-                {db && <LocalFile db={db} onTableCreated={() => setShouldRefreshTables(prev => prev + 1)} />}
                 {db && (
                     <TableList
                         db={db}
