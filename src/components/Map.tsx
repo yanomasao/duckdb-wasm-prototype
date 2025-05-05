@@ -50,13 +50,6 @@ const calculateSimplifyTolerance = (zoomLevel: number): number => {
 
     const simplify = m * zoomLevel + b;
 
-    // // ズームレベルに応じて指数関数的に簡略化レベルを変更
-    // const maxSimplify = 0.001; // 最大簡略化レベル
-    // const zoomFactor = (15 - zoomLevel) / 15; // 0から1の値
-
-    // // 指数関数的な補間を使用
-    // const simplify = maxSimplify * Math.pow(zoomFactor, 2);
-
     return Number(simplify.toFixed(6));
 };
 
