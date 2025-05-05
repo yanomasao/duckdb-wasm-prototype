@@ -77,15 +77,15 @@ const RemoteFile: React.FC<RemoteFileProps> = ({ db, onTableCreated }) => {
                         gap: '10px',
                     }}
                 >
-                    <div className="url-input" style={{ display: 'flex', gap: '10px' }}>
+                    <div className="file-upload">
                         <input
                             type="url"
                             value={url}
                             onChange={handleUrlChange}
                             placeholder="Enter file URL (.parquet, .geojson, .shp)"
-                            style={{ flex: 1, padding: '5px' }}
+                            style={{ flex: 1, padding: '0.5em' }}
                         />
-                        <button onClick={createTableFromUrl} disabled={!db || !url.trim() || isCreatingTable} style={{ whiteSpace: 'nowrap' }}>
+                        <button onClick={createTableFromUrl} disabled={!db || !url.trim() || isCreatingTable}>
                             {isCreatingTable ? 'テーブル作成中...' : 'Create Table from URL'}
                         </button>
                     </div>
