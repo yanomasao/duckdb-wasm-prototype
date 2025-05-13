@@ -6,7 +6,7 @@ import TableList from './components/TableList';
 import { useDuckDB } from './hooks/useDuckDB';
 
 function App() {
-    const { db, error: dbError } = useDuckDB();
+    const { db } = useDuckDB();
     const [selectedTable, setSelectedTable] = useState<string | null>(null);
     const [selectedColumns, setSelectedColumns] = useState<Record<string, string[]>>({});
     const [shouldRefreshTables, setShouldRefreshTables] = useState(0);

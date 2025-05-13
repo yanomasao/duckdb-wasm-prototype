@@ -32,7 +32,6 @@ export function getTileEnvelope(zoom: number, x: number, y: number): TileBounds 
     // 事前計算された定数
     const n = 1 << zoom; // Math.pow(2, zoom) の代わりにビットシフトを使用
     const invN = 1 / n;
-    const PI_180 = Math.PI / 180;
     const _180_PI = 180 / Math.PI;
 
     // 経度の計算
@@ -120,14 +119,6 @@ function lngLatToMercator(lng: number, lat: number): [number, number] {
     let y = Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180);
     y = y * 20037508.34 / 180;
     return [x, y];
-}
-
-// Webメルカトル座標を緯度経度に変換する関数
-function mercatorToLngLat(x: number, y: number): [number, number] {
-    const lng = x * 180 / 20037508.34;
-    let lat = y * 180 / 20037508.34;
-    lat = 180 / Math.PI * (2 * Math.atan(Math.exp(lat * Math.PI / 180)) - Math.PI / 2);
-    return [lng, lat];
 }
 
 export async function geojsonToRaster(features: Feature<Geometry, GeoJsonProperties>[], z: number, x: number, y: number): Promise<Uint8Array> {
@@ -300,20 +291,6 @@ export async function geojsonToRaster(features: Feature<Geometry, GeoJsonPropert
             reader.readAsArrayBuffer(blob);
         }, 'image/png');
     });
-}
-
-// 点がポリゴン内にあるかどうかを判定する関数
-function isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
-    const [x, y] = point;
-    let inside = false;
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const [xi, yi] = polygon[i];
-        const [xj, yj] = polygon[j];
-        const intersect = ((yi > y) !== (yj > y)) &&
-            (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-        if (intersect) inside = !inside;
-    }
-    return inside;
 }
 
 export function geojsonToMVT(features: Feature<Geometry, GeoJsonProperties>[], z: number, x: number, y: number): Uint8Array {
