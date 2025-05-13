@@ -25,6 +25,7 @@ const RemoteFile: React.FC<RemoteFileProps> = ({ db, onTableCreated }) => {
 
         try {
             conn = await db.connect();
+            await conn.query('LOAD httpfs;');
             await conn.query('LOAD spatial;');
 
             // URLからファイル名を抽出
