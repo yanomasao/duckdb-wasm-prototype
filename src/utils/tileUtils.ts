@@ -11,6 +11,12 @@ export interface TileBounds {
 // メモ化用のキャッシュ
 const tileEnvelopeCache = new Map<string, TileBounds>();
 
+export function getZxyFromUrl(url: string) {
+    const parts = url.split("/").slice(-3);
+    if (parts.length !== 3) return;
+    const [z, x, y] = parts.map(s => Number(s.split(".")[0]));
+    return { z, x, y };
+}
 /**
  * Calculate the bounding box coordinates for a given tile (zoom, x, y) in WGS84 (EPSG:4326)
  * Similar to PostGIS ST_TileEnvelope

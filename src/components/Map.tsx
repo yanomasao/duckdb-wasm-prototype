@@ -3,7 +3,7 @@ import { Feature, GeoJsonProperties, Geometry } from 'geojson';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import React, { useEffect, useRef, useState } from 'react';
-import { getTileEnvelope } from '../utils/tileUtils';
+import { getTileEnvelope, getZxyFromUrl } from '../utils/tileUtils';
 import { geojsonToVectorTile } from '../utils/vectorTileUtils';
 
 interface DuckDBConnection {
@@ -21,13 +21,12 @@ interface MapProps {
     selectedColumns: string[];
 }
 
-interface TileParams {
-    z: number;
-    x: number;
-    y: number;
-}
-
-interface QueryParams extends TileParams {
+interface QueryParams {
+    zxy: {
+        z: number;
+        x: number;
+        y: number;
+    };
     selectedTable: string;
     selectedColumns: string[];
 }
@@ -54,11 +53,11 @@ const calculateSimplifyTolerance = (zoomLevel: number): number => {
 };
 
 const generateVectorTileQuery = (params: QueryParams): string => {
-    const { z, selectedTable, selectedColumns } = params;
+    const { zxy, selectedTable, selectedColumns } = params;
     const columns = selectedColumns.length > 0 ? selectedColumns.join(', ') : '1 as dummy';
-    const simplify = calculateSimplifyTolerance(z);
+    const simplify = calculateSimplifyTolerance(zxy.z);
 
-    console.log(`z: ${z}, simplify level: ${simplify}`);
+    console.log(`z: ${zxy.z}, simplify level: ${simplify}`);
 
     return `
         WITH filtered AS (
@@ -124,19 +123,9 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                 maplibregl.addProtocol('duckdb-vector', async params => {
                     console.log('Protocol handler called with URL:', params.url);
 
-                    // URLをデコード
-                    const decodedUrl = decodeURIComponent(params.url);
-                    console.log('Decoded URL:', decodedUrl);
-
-                    // タイルパスの解析
-                    const match = decodedUrl.match(/duckdb-vector:\/\/(\d+)\/(\d+)\/(\d+)\.pbf$/);
-                    if (!match) {
-                        console.error('Invalid tile path format:', decodedUrl);
-                        return { data: new Uint8Array() };
-                    }
-
-                    const [z, x, y] = match.slice(1).map(Number);
-                    const cacheKey = `${z}/${x}/${y}`;
+                    const zxy = getZxyFromUrl(params.url);
+                    if (!zxy) throw new Error('invalid tile url: ' + params.url);
+                    const cacheKey = `${zxy.z}/${zxy.x}/${zxy.y}`;
 
                     const addProtocolTime = new Date();
                     console.log(`計測 ${cacheKey} 1 ${addProtocolTime.toISOString()} start addProtocol`);
@@ -148,14 +137,14 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         return { data: tileCache.current.get(cacheKey) };
                     }
 
-                    console.log(`Processing tile: z: ${z}, x: ${x}, y: ${y}`);
+                    console.log(`Processing tile: z: ${zxy.z}, x: ${zxy.x}, y: ${zxy.y}`);
 
                     try {
                         if (!connectionRef.current) {
                             throw new Error('Database connection is not available');
                         }
 
-                        const { minLng, minLat, maxLng, maxLat } = getTileEnvelope(z, x, y);
+                        const { minLng, minLat, maxLng, maxLat } = getTileEnvelope(zxy.z, zxy.x, zxy.y);
 
                         console.log(`Tile bounds: minLng=${minLng}, maxLng=${maxLng}, minLat=${minLat}, maxLat=${maxLat}`);
 
@@ -166,9 +155,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
 
                         // 選択されたカラムを取得するSQLクエリを構築
                         const query = generateVectorTileQuery({
-                            z,
-                            x,
-                            y,
+                            zxy,
                             selectedTable,
                             selectedColumns,
                         });
@@ -241,7 +228,7 @@ const MapComponent: React.FC<MapProps> = ({ db, selectedTable, selectedColumns }
                         // console.log('Generating vector tile...');
                         const vectorStartTime = new Date();
                         console.log(`計測 ${cacheKey} 6 ${vectorStartTime.toISOString()} start vector`);
-                        const vectorTile = geojsonToVectorTile(features, z, x, y);
+                        const vectorTile = geojsonToVectorTile(features, zxy.z, zxy.x, zxy.y);
                         const vectorEndTime = new Date();
                         const vectorElapsedMs = vectorEndTime.getTime() - vectorStartTime.getTime();
                         console.log(`計測 ${cacheKey} 7 ${vectorEndTime.toISOString()} end  vector, elapsed: ${vectorElapsedMs}ms`);
