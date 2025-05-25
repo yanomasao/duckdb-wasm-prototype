@@ -13,10 +13,12 @@ const tileEnvelopeCache = new Map<string, TileBounds>();
 
 export function getZxyFromUrl(url: string) {
     const parts = url.split("/").slice(-3);
-    if (parts.length !== 3) return;
+    if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return;
     const [z, x, y] = parts.map(s => Number(s.split(".")[0]));
+    if (isNaN(z) || isNaN(x) || isNaN(y)) return;
     return { z, x, y };
 }
+
 /**
  * Calculate the bounding box coordinates for a given tile (zoom, x, y) in WGS84 (EPSG:4326)
  * Similar to PostGIS ST_TileEnvelope
